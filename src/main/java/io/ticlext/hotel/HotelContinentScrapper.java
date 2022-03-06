@@ -102,6 +102,7 @@ public class HotelContinentScrapper extends Scrapper<HotelRegionPage> {
                     pb.setExtraMessage(e.getMessage());
                 }
             }
+            processFuture(pb, true);
         }
     }
 }

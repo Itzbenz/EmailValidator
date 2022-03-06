@@ -27,12 +27,19 @@ public class HotelRegionPage extends Scrapper<String> {
     }
     
     protected String name;
+    protected int numberOfHotel = -1;
     protected Consumer<Hotel> onData;
     
     public HotelRegionPage(String name, URL url, Consumer<Hotel> onData) {
         this.name = name;
         setNextURL(url);
         this.onData = onData;
+        try {
+            if (name.contains("(") && name.contains(")")){
+                this.numberOfHotel = Integer.parseInt(name.substring(name.indexOf("(") + 1, name.indexOf(")")));
+                name = name.substring(0, name.indexOf("("));
+            }
+        }catch(Exception ignored){}
     }
     
     
@@ -65,8 +72,8 @@ public class HotelRegionPage extends Scrapper<String> {
             hotel.country = doc2.getElementsByClass("breadcrumbs").get(0).children().get(Main.sortBy.ordinal()).text();
             onData.accept(hotel);
         }catch(Exception e){
-            e.printStackTrace();
-            UnThread.sleep(10000);//fix bug on runtime speedrun
+            Main.handleException(e);
+    
         }
         
     }
@@ -74,7 +81,7 @@ public class HotelRegionPage extends Scrapper<String> {
     URL scrapNextURL(Document doc) {
         try {
             return new URL(Main.baseURL + doc.getElementsByClass("nav next ui_button primary").get(0).attr("href"));
-        }catch(MalformedURLException e){
+        }catch(Exception e){
             return null;
         }
     }
@@ -94,8 +101,8 @@ public class HotelRegionPage extends Scrapper<String> {
             try {
                 URL url2 = new URL(Main.baseURL + e.select("a").get(0).attr("href"));
                 process(() -> Main.getHTTP(url2));
-            }catch(MalformedURLException ignored){
-        
+            }catch(MalformedURLException err){
+                Main.handleException(err);
             }
         }
     }
@@ -107,8 +114,16 @@ public class HotelRegionPage extends Scrapper<String> {
     }
     
     @Override
+    protected long getMaxHint(ProgressBar pb) {
+        if (numberOfHotel == -1){
+            return super.getMaxHint(pb);
+        }
+        return numberOfHotel;
+    }
+    
+    @Override
     public void run() {
-        try(ProgressBar pb = new ProgressBar("Scrapping: " + name, -1)) {
+        try(ProgressBar pb = new ProgressBar("Scrapping: " + name, numberOfHotel)) {
             while (nextURL != null) {
                 try {
                     scrapPage();
@@ -116,6 +131,7 @@ public class HotelRegionPage extends Scrapper<String> {
                     waitForNextPage(pb);
                 }catch(Exception e){
                     pb.setExtraMessage(e.getMessage());
+                    Main.handleException(e);
                 }
             }
             processFuture(pb, true);

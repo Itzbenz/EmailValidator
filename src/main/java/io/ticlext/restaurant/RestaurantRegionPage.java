@@ -19,7 +19,7 @@ public class RestaurantRegionPage extends Scrapper<String> {
     protected transient Consumer<Restaurant> onData;
     
     public RestaurantRegionPage(String regionName, URL url, Consumer<Restaurant> onData) {
-        setNextURL(url);
+        this.nextURL = url;
         this.name = regionName;
         this.onData = onData;
     }
@@ -92,6 +92,7 @@ public class RestaurantRegionPage extends Scrapper<String> {
                     waitForNextPage(pb);
                 }catch(Exception e){
                     pb.setExtraMessage(e.getMessage());
+                    Main.handleException(e);
                 }
             }
             processFuture(pb, true);

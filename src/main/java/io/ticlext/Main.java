@@ -3,15 +3,14 @@ package io.ticlext;
 import Atom.File.FileUtility;
 import Atom.Time.Timer;
 import Atom.Utility.Pool;
+import Atom.Utility.Random;
 import io.ticlext.hotel.HotelContinentScrapper;
 import io.ticlext.hotel.HotelRegionPage;
 import io.ticlext.restaurant.RestaurantContinentScrapper;
 import io.ticlext.restaurant.RestaurantRegionPage;
 
 import java.io.*;
-import java.net.HttpURLConnection;
-import java.net.MalformedURLException;
-import java.net.URL;
+import java.net.*;
 import java.nio.charset.StandardCharsets;
 import java.util.*;
 import java.util.concurrent.Executors;
@@ -91,6 +90,14 @@ public class Main {
         writers.get(country).println(email);
     }
     
+    static ArrayList<Proxy> proxies;
+    
+    public static enum SortBy {
+        CONTINENT, COUNTRY, REGION, CITY;
+    }
+    
+    static ThreadLocal<Proxy> proxySupplier;
+    
     public static void main(String[] args) throws Throwable {
         BufferedReader br = new BufferedReader(new InputStreamReader(System.in));
         boolean first = true;
@@ -122,7 +129,7 @@ public class Main {
                 System.err.println("Error: " + e.getMessage());
             }
         }
-        /*
+        
         while (first) {
             try {
                 System.out.print("Enter Hotels URL to scrap [" + restaurantsURL + "]: ");
@@ -138,8 +145,7 @@ public class Main {
             }
         }
         
-         */
-    
+        
         while (first) {
             try {
                 //System.out.print("Enter Data Folder: [data/]: ");
@@ -161,7 +167,7 @@ public class Main {
             }
         }
     
-    
+    /*
         while (first) {
             try {
                 System.out.println("Sort By: " + Arrays.toString(SortBy.values()));
@@ -177,14 +183,28 @@ public class Main {
                 System.err.println("Error: " + e.getMessage());
             }
         }
-    
-    
+        
+     */
+        ArrayList<String> argsList = new ArrayList<String>(Arrays.asList(args));
+        
         if (headerFile.exists()){
             readHeader(headerFile);
         }
+        float getAvailableRAMInGB = (float) Runtime.getRuntime().maxMemory() / (1024 * 1024 * 1024);
+        getAvailableRAMInGB = getAvailableRAMInGB * 0.8f;
+        System.out.println("Available RAM: " + getAvailableRAMInGB + " GB");
         //set thread
-        int thread = Math.max((Runtime.getRuntime().availableProcessors()), 1);
-        Pool.parallelSupplier = () -> Executors.newFixedThreadPool(thread, (r) -> {
+        int thread = (int) Math.max((Runtime.getRuntime().availableProcessors()), 1);
+        if (argsList.contains("--thread")){
+            try {
+                thread = Integer.parseInt(argsList.get(argsList.indexOf("--thread") + 1));
+            }catch(NumberFormatException e){
+                System.err.println("Invalid thread number");
+                return;
+            }
+        }
+        int finalThread = thread;
+        Pool.parallelSupplier = () -> Executors.newFixedThreadPool(finalThread, (r) -> {
             Thread t = Executors.defaultThreadFactory().newThread(r);
             t.setName(t.getName() + "-Atomic-Executor");
             t.setDaemon(true);
@@ -197,14 +217,14 @@ public class Main {
     
         Thread hotelScrapper = null, restaurantScrapper = null;
         File hotelFile = new File(hotelsURL.getFile()), restaurantFile = new File(restaurantsURL.getFile());
-        if (false && !hotelFile.exists()){
+        if (first && !hotelFile.exists()){
             System.out.println("Scrapping hotels: " + hotelsURL);
             HotelRegionPage.desc();
             HotelContinentScrapper regionScrapper = new HotelContinentScrapper(hotelsURL, hotel -> {
                 String country = hotel.country;
                 String email = hotel.email;
                 write(country, email);
-            
+                
             });
             hotelScrapper = regionScrapper.init();
             hotelScrapper.join();
@@ -225,13 +245,53 @@ public class Main {
         }
     }
     
-    public static enum SortBy {
-        CONTINENT, COUNTRY, REGION, CITY;
+    public static void handleException(Throwable e) {
+        e.printStackTrace();
     }
     
+    public static void setProxies(File proxyFile) {
+        proxies = new ArrayList<>();
+        if (proxyFile.exists()){
+            try(BufferedReader br = new BufferedReader(new FileReader(proxyFile))) {
+                String line;
+                while ((line = br.readLine()) != null) {
+                    try {
+                        URL url = new URL(line);
+                        if (url.getProtocol().startsWith("http")){
+                            int port = url.getPort();
+                            if (port == -1){
+                                port = 80;
+                            }
+                            proxies.add(new Proxy(Proxy.Type.HTTP, new InetSocketAddress(url.getHost(), port)));
+                        }
+                    }catch(MalformedURLException e){
+                        String[] parts = line.split(":");
+                        if (parts.length == 2){
+                            proxies.add(new Proxy(Proxy.Type.HTTP,
+                                    new InetSocketAddress(parts[0], Integer.parseInt(parts[1]))));
+                        }else{
+                            System.err.println("Invalid proxy: " + line);
+                        }
+                    }
+                    
+                }
+            }catch(IOException e){
+                e.printStackTrace();
+                return;
+            }
+        }else{
+            throw new IllegalArgumentException("Proxy file not found: " + proxyFile.getAbsolutePath());
+        }
+        if (!proxies.isEmpty()){
+            proxySupplier = ThreadLocal.withInitial(() -> {
+                return Random.getRandom(proxies);
+            });
+        }
+    }
     
     public static String getHTTP(URL url) throws IOException {
-        HttpURLConnection con = (HttpURLConnection) url.openConnection();
+        HttpURLConnection con = (HttpURLConnection) (proxySupplier == null ? url.openConnection() : url.openConnection(
+                proxySupplier.get()));
         for (Object o : headers.keySet()) {
             String key = String.valueOf(o);
             con.setRequestProperty(key, headers.getProperty(key));

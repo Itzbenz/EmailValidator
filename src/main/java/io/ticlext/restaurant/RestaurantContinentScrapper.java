@@ -103,6 +103,7 @@ public class RestaurantContinentScrapper extends Scrapper<RestaurantRegionPage> 
                     processFuture(pb, true);
                 }catch(Exception e){
                     pb.setExtraMessage(e.getMessage());
+                    Main.handleException(e);
                 }
             }
             processFuture(pb, true);
