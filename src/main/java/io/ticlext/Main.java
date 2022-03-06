@@ -34,6 +34,7 @@ public class Main {
     static Timer saveTime = new Timer(TimeUnit.SECONDS, 10);
     static ThreadLocal<Proxy> proxySupplier;
     static ThreadLocal<Properties> headersSupplier;
+    
     static {
         headers.setProperty("User-Agent",
                 "Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/98.0.4758.80 Safari/537.36");
@@ -86,13 +87,26 @@ public class Main {
         if (!emailRegex.matcher(email).matches()) return;
         if (!writers.containsKey(country)){
             try {
-                writers.put(country, new PrintStream(new FileOutputStream("data/" + country + ".txt"), true));
+                writers.put(country,
+                        new PrintStream(new FileOutputStream(new File(dataFolder, country + ".txt")), true));
             }catch(FileNotFoundException e){
                 System.err.println("Error opening file: " + country + ".txt");
                 return;
             }
         }
         writers.get(country).println(email);
+    }
+    
+    public static List<File> closeWriters() {
+        writers.values().forEach(PrintStream::close);
+        ArrayList<File> files = new ArrayList<>();
+        for (String country : writers.keySet()) {
+            File f = new File(dataFolder, country + ".txt");
+            files.add(f);
+            
+        }
+        writers.clear();
+        return files;
     }
     
     public static void main(String[] args) throws Throwable {
@@ -222,8 +236,8 @@ public class Main {
         Pool.parallelAsync = Pool.parallelSupplier.get();
         System.out.println("Using " + thread + " threads");
         //set writers
-    
-    
+        
+        
         Thread hotelScrapper = null, restaurantScrapper = null;
         File hotelFile = new File(hotelsURL.getFile()), restaurantFile = new File(restaurantsURL.getFile());
         if (first && !hotelFile.exists()){
@@ -233,7 +247,7 @@ public class Main {
                 String country = hotel.country;
                 String email = hotel.email;
                 write(country, email);
-            
+                
             });
             hotelScrapper = regionScrapper.init();
             hotelScrapper.join();
@@ -247,11 +261,37 @@ public class Main {
                 String email = restaurant.email;
                 write(country, email);
             });
-    
+            
             restaurantScrapper = regionScrapper.init();
             restaurantScrapper.join();
             FileUtility.write(restaurantFile, "Done".getBytes(StandardCharsets.UTF_8));
         }
+        reformatTextFile(closeWriters());
+    }
+    
+    public static void reformatTextFile(List<File> files) {
+        System.out.println("Reformatting text files");
+        files.parallelStream().forEach(file -> {
+            HashSet<String> lines = new HashSet<>();
+            try(BufferedReader br = new BufferedReader(new FileReader(file))) {
+                String line;
+                while ((line = br.readLine()) != null) {
+                    lines.add(line);
+                }
+            }catch(IOException e){
+                System.err.println("Error: " + e.getMessage());
+                return;
+            }
+            try(BufferedWriter bw = new BufferedWriter(new FileWriter(file))) {
+                for (String line2 : lines) {
+                    bw.write(line2);
+                    bw.newLine();
+                }
+            }catch(IOException e){
+                System.err.println("Error: " + e.getMessage());
+            }
+            
+        });
     }
     
     public static void handleException(Throwable e) {

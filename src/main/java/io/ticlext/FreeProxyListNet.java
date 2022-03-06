@@ -15,6 +15,7 @@ import java.net.InetSocketAddress;
 import java.net.Proxy;
 import java.net.URL;
 import java.util.ArrayList;
+import java.util.stream.Collectors;
 
 public class FreeProxyListNet implements ProxyProvider, Serializable {
     public static final URL base = Main.safeURL("https://free-proxy-list.net/");
@@ -24,17 +25,29 @@ public class FreeProxyListNet implements ProxyProvider, Serializable {
     
     public FreeProxyListNet() throws IOException {
         items = scrap();
+    
         for (FreeProxyItem item : items) {
             if (item.https){
-                proxies.add(new Proxy(Proxy.Type.HTTP, new InetSocketAddress(item.ip, item.port)));
+                proxies.add(item.toProxy());
             }
         }
+        ArrayList<Proxy> tests = new ArrayList<>(proxies);
+        System.out.println("Testing " + tests.size() + " proxies...");
+        proxies = tests.parallelStream().filter(p -> {
+            try {
+                ProxyProvider.testProxy(p);
+                return true;
+            }catch(Exception e){
+                return false;
+            }
+        }).collect(Collectors.toCollection(ArrayList::new));
         if (proxies.size() == 0){
-            throw new IOException("No proxies found");
+            throw new IOException("No working proxies found");
         }
         System.out.println("Loaded " + proxies.size() + " proxies from FreeProxyListNet");
         gson.toJson(this, new FileWriter("proxies.json"));
     }
+    
     
     public static ArrayList<FreeProxyItem> scrap() throws IOException {
         Document doc = Jsoup.parse(Main.getHTTP(base, true));
@@ -70,5 +83,17 @@ public class FreeProxyListNet implements ProxyProvider, Serializable {
         public boolean elite;
         public boolean google;
         public boolean https;
+        
+        public InetSocketAddress getAddress() {
+            return new InetSocketAddress(ip, port);
+        }
+        
+        public Proxy toProxy() {
+            if (https){
+                return new Proxy(Proxy.Type.HTTP, getAddress());
+            }else{
+                return new Proxy(Proxy.Type.SOCKS, getAddress());
+            }
+        }
     }
 }
