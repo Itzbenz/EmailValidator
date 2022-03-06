@@ -312,42 +312,54 @@ public class Main {
     
     
     public static String getHTTP(URL url) throws IOException {
+    
         return getHTTP(url, false);
     }
     
     public static String getHTTP(URL url, boolean noCookie) throws IOException {
         boolean useProxy = proxySupplier != null;
-        HttpURLConnection con = (HttpURLConnection) (useProxy ? url.openConnection(proxySupplier.get()) : url.openConnection());
-        Properties head = headers;
-        if (useProxy){
-            head = headersSupplier.get();
-        }
-        for (Object o : head.keySet()) {
-            String key = String.valueOf(o);
-            if (noCookie){
-                if (key.equals("Cookie")){
-                    continue;
+        while (true) {
+            try {
+                HttpURLConnection con = (HttpURLConnection) (useProxy ? url.openConnection(proxySupplier.get()) : url.openConnection());
+                Properties head = headers;
+                if (useProxy){
+                    head = headersSupplier.get();
+                }
+                for (Object o : head.keySet()) {
+                    String key = String.valueOf(o);
+                    if (noCookie){
+                        if (key.equals("Cookie")){
+                            continue;
+                        }
+                    }
+                    con.setRequestProperty(key, head.getProperty(key));
+                }
+                con.setRequestMethod("GET");
+                con.setDoOutput(true);
+                con.setDoInput(true);
+                con.connect();
+                StringBuilder sb = new StringBuilder();
+                BufferedReader br = new BufferedReader(new InputStreamReader(con.getInputStream()));
+                String line;
+                while ((line = br.readLine()) != null) {
+                    sb.append(line);
+                }
+                if (!noCookie){
+                    if (!head.containsKey("Cookie")){
+                        head.setProperty("Cookie", con.getHeaderField("Set-Cookie"));
+                        if (!useProxy){
+                            saveHeader(headerFile);
+                        }
+                    }
+                }
+                return sb.toString();
+            }catch(IOException e){
+                if (!useProxy){
+                    throw e;
                 }
             }
-            con.setRequestProperty(key, head.getProperty(key));
         }
-        con.setRequestMethod("GET");
-        con.setDoOutput(true);
-        con.setDoInput(true);
-        con.connect();
-        StringBuilder sb = new StringBuilder();
-        BufferedReader br = new BufferedReader(new InputStreamReader(con.getInputStream()));
-        String line;
-        while ((line = br.readLine()) != null) {
-            sb.append(line);
-        }
-        if (!noCookie){
-            if (!head.containsKey("Cookie")){
-                head.setProperty("Cookie", con.getHeaderField("Set-Cookie"));
-                saveHeader(headerFile);
-            }
-        }
-        return sb.toString();
+    
     }
     
     public enum SortBy {
