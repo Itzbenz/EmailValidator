@@ -38,7 +38,7 @@ public class FreeProxyListNet implements ProxyProvider, Serializable {
         proxies.clear();
         ArrayList<Future<Proxy>> futures = new ArrayList<>();
         for (Proxy p : tests) {
-            Pool.submit(() -> {
+            futures.add(Pool.submit(() -> {
                 try {
                     ProxyProvider.testProxy(p);
                     return p;
@@ -46,7 +46,7 @@ public class FreeProxyListNet implements ProxyProvider, Serializable {
                     System.err.println(p.address() + " failed: " + e.getMessage());
                     return null;
                 }
-            });
+            }));
         }
         for (Future<Proxy> f : futures) {
             Proxy p = null;
