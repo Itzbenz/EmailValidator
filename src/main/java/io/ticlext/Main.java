@@ -3,14 +3,16 @@ package io.ticlext;
 import Atom.File.FileUtility;
 import Atom.Time.Timer;
 import Atom.Utility.Pool;
-import Atom.Utility.Random;
 import io.ticlext.hotel.HotelContinentScrapper;
 import io.ticlext.hotel.HotelRegionPage;
 import io.ticlext.restaurant.RestaurantContinentScrapper;
 import io.ticlext.restaurant.RestaurantRegionPage;
 
 import java.io.*;
-import java.net.*;
+import java.net.HttpURLConnection;
+import java.net.MalformedURLException;
+import java.net.Proxy;
+import java.net.URL;
 import java.nio.charset.StandardCharsets;
 import java.util.*;
 import java.util.concurrent.Executors;
@@ -30,7 +32,6 @@ public class Main {
     static File headerFile = new File("header.properties");
     static File dataFolder;
     static Timer saveTime = new Timer(TimeUnit.SECONDS, 10);
-    static ArrayList<Proxy> proxies;
     static ThreadLocal<Proxy> proxySupplier;
     
     static {
@@ -95,7 +96,7 @@ public class Main {
         if (saveFile.exists()){
             while (true) {
                 System.out.print("Checkpoint (" + saveFile + ") found, continue from there? (y/n)");
-                String ans = br.readLine();
+                String ans = br.readLine().toLowerCase();
                 if (ans.equals("y")){
                     first = false;
                     break;
@@ -157,6 +158,18 @@ public class Main {
                 System.err.println("Error: " + e.getMessage());
             }
         }
+        while (true) {
+            System.out.print("Use proxy? (y/n): ");
+            String ans = br.readLine().toLowerCase();
+            if (ans.equals("y")){
+                proxySupplier = ThreadLocal.withInitial(new FreeProxyListNet());
+                break;
+            }else if (ans.equals("n")){
+                break;
+            }else{
+                System.out.println("Invalid input");
+            }
+        }
     
     /*
         while (first) {
@@ -208,7 +221,7 @@ public class Main {
     
         Thread hotelScrapper = null, restaurantScrapper = null;
         File hotelFile = new File(hotelsURL.getFile()), restaurantFile = new File(restaurantsURL.getFile());
-        if (false && !hotelFile.exists()){
+        if (first && !hotelFile.exists()){
             System.out.println("Scrapping hotels: " + hotelsURL);
             HotelRegionPage.desc();
             HotelContinentScrapper regionScrapper = new HotelContinentScrapper(hotelsURL, hotel -> {
@@ -240,45 +253,6 @@ public class Main {
         e.printStackTrace();
     }
     
-    public static void setProxies(File proxyFile) {
-        proxies = new ArrayList<>();
-        if (proxyFile.exists()){
-            try(BufferedReader br = new BufferedReader(new FileReader(proxyFile))) {
-                String line;
-                while ((line = br.readLine()) != null) {
-                    try {
-                        URL url = new URL(line);
-                        if (url.getProtocol().startsWith("http")){
-                            int port = url.getPort();
-                            if (port == -1){
-                                port = 80;
-                            }
-                            proxies.add(new Proxy(Proxy.Type.HTTP, new InetSocketAddress(url.getHost(), port)));
-                        }
-                    }catch(MalformedURLException e){
-                        String[] parts = line.split(":");
-                        if (parts.length == 2){
-                            proxies.add(new Proxy(Proxy.Type.HTTP,
-                                    new InetSocketAddress(parts[0], Integer.parseInt(parts[1]))));
-                        }else{
-                            System.err.println("Invalid proxy: " + line);
-                        }
-                    }
-                    
-                }
-            }catch(IOException e){
-                e.printStackTrace();
-                return;
-            }
-        }else{
-            throw new IllegalArgumentException("Proxy file not found: " + proxyFile.getAbsolutePath());
-        }
-        if (!proxies.isEmpty()){
-            proxySupplier = ThreadLocal.withInitial(() -> {
-                return Random.getRandom(proxies);
-            });
-        }
-    }
     
     public static String getHTTP(URL url) throws IOException {
         return getHTTP(url, false);
