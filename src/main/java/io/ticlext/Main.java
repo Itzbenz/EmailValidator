@@ -318,6 +318,8 @@ public class Main {
     
     public static String getHTTP(URL url, boolean noCookie) throws IOException {
         boolean useProxy = proxySupplier != null;
+        int retry = 0;
+    
         while (true) {
             try {
                 useProxy = proxySupplier != null;
@@ -355,10 +357,11 @@ public class Main {
                 }
                 return sb.toString();
             }catch(IOException e){
-                if (!useProxy){
+                if (!useProxy || retry > 10){
                     throw e;
                 }
             }
+            retry++;
         }
     
     }
