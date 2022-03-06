@@ -34,12 +34,15 @@ public class HotelRegionPage extends Scrapper<String> {
         this.name = name;
         setNextURL(url);
         this.onData = onData;
+        /*
         try {
             if (name.contains("(") && name.contains(")")){
                 this.numberOfHotel = Integer.parseInt(name.substring(name.indexOf("(") + 1, name.indexOf(")")));
                 this.name = name.substring(0, name.indexOf("("));
             }
         }catch(Exception ignored){}
+        
+         */
     }
     
     
