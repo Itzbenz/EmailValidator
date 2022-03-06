@@ -20,23 +20,18 @@ import java.util.regex.Pattern;
 public class Main {
     public static final Pattern emailRegex = Pattern.compile(
             "[a-z0-9!#$%&'*+/=?^_`{|}~-]+(?:\\.[a-z0-9!#$%&'*+/=?^_`{|}~-]+)*@(?:[a-z0-9](?:[a-z0-9-]*[a-z0-9])?\\.)+[a-z0-9](?:[a-z0-9-]*[a-z0-9])?");
+    static final Properties headers = new Properties();
+    static final Map<String, PrintStream> writers = Collections.synchronizedMap(new HashMap<>());
+    public static String baseURL = "https://www.tripadvisor.com";
+    public static SortBy sortBy = SortBy.COUNTRY;
     static URL restaurantsURL = safeURL("https://www.tripadvisor.com/Restaurants-g4-Europe.html"), hotelsURL = safeURL(
             "https://www.tripadvisor.com/Hotels-g4-Europe-Hotels.html");
-    static final Properties headers = new Properties();
     static File saveFile = new File("ScrapDataCheckpoint.json");
-    public static String baseURL = "https://www.tripadvisor.com";
     static File headerFile = new File("header.properties");
-    
-    public static SortBy sortBy = SortBy.COUNTRY;
     static File dataFolder;
-    
-    public static URL safeURL(String url) {
-        try {
-            return new URL(url);
-        }catch(Exception e){
-            throw new RuntimeException(e);
-        }
-    }
+    static Timer saveTime = new Timer(TimeUnit.SECONDS, 10);
+    static ArrayList<Proxy> proxies;
+    static ThreadLocal<Proxy> proxySupplier;
     
     static {
         headers.setProperty("User-Agent",
@@ -47,7 +42,13 @@ public class Main {
         headers.setProperty("Upgrade-Insecure-Requests", "1");
     }
     
-    static final Map<String, PrintStream> writers = Collections.synchronizedMap(new HashMap<>());
+    public static URL safeURL(String url) {
+        try {
+            return new URL(url);
+        }catch(Exception e){
+            throw new RuntimeException(e);
+        }
+    }
     
     public static void setDataFolder(String dataFolder) {
         Main.dataFolder = new File(dataFolder);
@@ -73,8 +74,6 @@ public class Main {
         headers.remove("accept-encoding");
     }
     
-    static Timer saveTime = new Timer(TimeUnit.SECONDS, 10);
-    
     public static void write(String country, String email) {
         if (email == null) return;
         if (email.isEmpty()) return;
@@ -89,14 +88,6 @@ public class Main {
         }
         writers.get(country).println(email);
     }
-    
-    static ArrayList<Proxy> proxies;
-    
-    public static enum SortBy {
-        CONTINENT, COUNTRY, REGION, CITY;
-    }
-    
-    static ThreadLocal<Proxy> proxySupplier;
     
     public static void main(String[] args) throws Throwable {
         BufferedReader br = new BufferedReader(new InputStreamReader(System.in));
@@ -194,7 +185,7 @@ public class Main {
         getAvailableRAMInGB = getAvailableRAMInGB * 0.8f;
         System.out.println("Available RAM: " + getAvailableRAMInGB + " GB");
         //set thread
-        int thread = (int) Math.max((Runtime.getRuntime().availableProcessors()), 1);
+        int thread = Math.max((Runtime.getRuntime().availableProcessors()), 1);
         if (argsList.contains("--thread")){
             try {
                 thread = Integer.parseInt(argsList.get(argsList.indexOf("--thread") + 1));
@@ -217,14 +208,14 @@ public class Main {
     
         Thread hotelScrapper = null, restaurantScrapper = null;
         File hotelFile = new File(hotelsURL.getFile()), restaurantFile = new File(restaurantsURL.getFile());
-        if (first && !hotelFile.exists()){
+        if (false && !hotelFile.exists()){
             System.out.println("Scrapping hotels: " + hotelsURL);
             HotelRegionPage.desc();
             HotelContinentScrapper regionScrapper = new HotelContinentScrapper(hotelsURL, hotel -> {
                 String country = hotel.country;
                 String email = hotel.email;
                 write(country, email);
-                
+            
             });
             hotelScrapper = regionScrapper.init();
             hotelScrapper.join();
@@ -290,6 +281,10 @@ public class Main {
     }
     
     public static String getHTTP(URL url) throws IOException {
+        return getHTTP(url, false);
+    }
+    
+    public static String getHTTP(URL url, boolean noCache) throws IOException {
         HttpURLConnection con = (HttpURLConnection) (proxySupplier == null ? url.openConnection() : url.openConnection(
                 proxySupplier.get()));
         for (Object o : headers.keySet()) {
@@ -306,11 +301,17 @@ public class Main {
         while ((line = br.readLine()) != null) {
             sb.append(line);
         }
-        if (!headers.containsKey("Cookie")){
-            headers.setProperty("Cookie", con.getHeaderField("Set-Cookie"));
-            saveHeader(headerFile);
+        if (!noCache){
+            if (!headers.containsKey("Cookie")){
+                headers.setProperty("Cookie", con.getHeaderField("Set-Cookie"));
+                saveHeader(headerFile);
+            }
         }
         return sb.toString();
+    }
+    
+    public enum SortBy {
+        CONTINENT, COUNTRY, REGION, CITY
     }
     
     

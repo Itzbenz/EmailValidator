@@ -15,6 +15,7 @@ import java.util.function.Consumer;
 public class RestaurantContinentScrapper extends Scrapper<RestaurantRegionPage> {
     protected boolean first = true;
     protected transient Consumer<Restaurant> onData;
+    protected int maxLocation = 1;
     
     public RestaurantContinentScrapper(URL url, Consumer<Restaurant> onData) {
         nextURL = url;
@@ -25,6 +26,15 @@ public class RestaurantContinentScrapper extends Scrapper<RestaurantRegionPage> 
     public RestaurantContinentScrapper setOnData(Consumer<Restaurant> onData) {
         this.onData = onData;
         return this;
+    }
+    
+    protected void scrapMetadata(Document doc) {
+        try {
+            maxLocation = Integer.parseInt(doc.getElementsByClass("pgCount").get(0).text().split("of ")[1].replace(",",
+                    ""));
+        }catch(Exception e){
+        
+        }
     }
     
     protected void firstTime() throws IOException {
@@ -74,7 +84,7 @@ public class RestaurantContinentScrapper extends Scrapper<RestaurantRegionPage> 
                         onData);
                 process(r);
             }catch(Exception ignored){
-            
+    
             }
         }
     }
@@ -83,6 +93,15 @@ public class RestaurantContinentScrapper extends Scrapper<RestaurantRegionPage> 
         Document doc = Jsoup.parse(getHTMLNext());
         setNextURL(getNextURL(doc));
         scrapItems(doc);
+        scrapMetadata(doc);
+    }
+    
+    @Override
+    protected long getMaxHint(ProgressBar pb) {
+        if (maxLocation == -1 || pb.getCurrent() > maxLocation){
+            return super.getMaxHint(pb);
+        }
+        return maxLocation;
     }
     
     @Override
@@ -95,7 +114,7 @@ public class RestaurantContinentScrapper extends Scrapper<RestaurantRegionPage> 
                 return;
             }
         }
-        try(ProgressBar pb = new ProgressBar(getClass().getSimpleName(), -1)) {
+        try(ProgressBar pb = new ProgressBar(getClass().getSimpleName(), maxLocation)) {
             while (nextURL != null) {
                 try {
                     scrapPage();

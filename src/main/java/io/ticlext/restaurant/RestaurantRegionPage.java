@@ -81,6 +81,7 @@ public class RestaurantRegionPage extends Scrapper<String> {
         Document doc = Jsoup.parse(getHTMLNext());
         setNextURL(scrapNextURL(doc));
         scrapItems(doc);
+        
     }
     
     @Override

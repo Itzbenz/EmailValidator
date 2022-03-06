@@ -115,7 +115,7 @@ public class HotelRegionPage extends Scrapper<String> {
     
     @Override
     protected long getMaxHint(ProgressBar pb) {
-        if (numberOfHotel == -1){
+        if (numberOfHotel == -1 || pb.getCurrent() > numberOfHotel){
             return super.getMaxHint(pb);
         }
         return numberOfHotel;
