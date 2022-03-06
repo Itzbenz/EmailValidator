@@ -15,7 +15,11 @@ public interface ProxyProvider extends Supplier<Proxy> {
         //"https://ip-api.com/line?fields=status,proxy,hosting,query"
         String url = Main.baseURL;
         HttpURLConnection h = (HttpURLConnection) new URL(url).openConnection(proxyProvider);
-    
+        Main.headersSupplier.get().forEach((k, v) -> {
+            String key = String.valueOf(k);
+            String value = String.valueOf(v);
+            h.setRequestProperty(key, value);
+        });
         h.setConnectTimeout(timeout);
         h.setReadTimeout(timeout);
         h.connect();

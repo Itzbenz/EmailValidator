@@ -1,5 +1,6 @@
 package io.ticlext;
 
+import Atom.Utility.Pool;
 import Atom.Utility.Random;
 import com.google.gson.Gson;
 import com.google.gson.GsonBuilder;
@@ -15,7 +16,8 @@ import java.net.InetSocketAddress;
 import java.net.Proxy;
 import java.net.URL;
 import java.util.ArrayList;
-import java.util.stream.Collectors;
+import java.util.concurrent.ExecutionException;
+import java.util.concurrent.Future;
 
 public class FreeProxyListNet implements ProxyProvider, Serializable {
     public static final URL base = Main.safeURL("https://free-proxy-list.net/");
@@ -33,15 +35,30 @@ public class FreeProxyListNet implements ProxyProvider, Serializable {
         }
         ArrayList<Proxy> tests = new ArrayList<>(proxies);
         System.out.println("Testing " + tests.size() + " proxies...");
-        proxies = tests.parallelStream().filter(p -> {
+        proxies.clear();
+        ArrayList<Future<Proxy>> futures = new ArrayList<>();
+        for (Proxy p : tests) {
+            Pool.submit(() -> {
+                try {
+                    ProxyProvider.testProxy(p);
+                    return p;
+                }catch(Exception e){
+                    System.err.println(p.address() + " failed: " + e.getMessage());
+                    return null;
+                }
+            });
+        }
+        for (Future<Proxy> f : futures) {
+            Proxy p = null;
             try {
-                ProxyProvider.testProxy(p);
-                return true;
-            }catch(Exception e){
-                System.err.println(p.address() + " failed: " + e.getMessage());
-                return false;
+                p = f.get();
+                if (p != null){
+                    proxies.add(p);
+                }
+            }catch(InterruptedException | ExecutionException e){
+                e.printStackTrace();
             }
-        }).collect(Collectors.toCollection(ArrayList::new));
+        }
         if (proxies.size() == 0){
             throw new IOException("No working proxies found");
         }
