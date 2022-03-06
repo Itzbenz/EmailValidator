@@ -77,12 +77,12 @@ public class FreeProxyListNet implements ProxyProvider, Serializable {
                 e.printStackTrace();
             }
         }
+        if (good.size() == 0){
+            throw new IOException("No good proxies found");
+        }
         synchronized (proxies) {
             proxies.clear();
             proxies.addAll(good);
-            if (proxies.size() == 0){
-                throw new IOException("No working proxies found");
-            }
             if (!shut) System.out.println("Loaded " + proxies.size() + " proxies from FreeProxyListNet");
         }
     }

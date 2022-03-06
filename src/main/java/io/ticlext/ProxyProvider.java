@@ -8,7 +8,7 @@ import java.util.function.Supplier;
 
 public interface ProxyProvider extends Supplier<Proxy> {
     static void testProxy(Proxy proxyProvider) throws IOException {
-        testProxy(proxyProvider, 20 * 1000);
+        testProxy(proxyProvider, 10 * 1000);
     }
     
     default void update() {
