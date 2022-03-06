@@ -1,0 +1,44 @@
+plugins {
+    id 'java'
+    id 'application'
+}
+
+group 'io.ticlext'
+version '1.0'
+
+repositories {
+    mavenCentral()
+    maven { url 'https://jitpack.io' }
+}
+
+dependencies {
+    testImplementation 'org.junit.jupiter:junit-jupiter-api:5.7.0'
+    testRuntimeOnly 'org.junit.jupiter:junit-jupiter-engine:5.7.0'
+    implementation "com.github.o7-Fire.Atomic-Library:Atomic:cd5814f301879d67fd5b6cf7af93a4a33667fcb1"
+    implementation group: 'org.jsoup', name: 'jsoup', version: '1.14.3'
+    implementation group: 'com.google.code.gson', name: 'gson', version: '2.9.0'
+    implementation group: 'me.tongfei', name: 'progressbar', version: '0.9.3'
+
+}
+
+test {
+    useJUnitPlatform()
+}
+jar {
+    duplicatesStrategy(DuplicatesStrategy.EXCLUDE)
+    archiveName(project.name + ".jar")
+}
+
+application {
+    mainClassName = 'io.ticlext.Main'
+}
+
+//https://stackoverflow.com/questions/32088966/gradle-generated-startscript-for-windows-produces-input-line-is-too-long
+startScripts {
+    doLast {
+        def winScriptFile = file getWindowsScript()
+        def winFileText = winScriptFile.text
+        winFileText = winFileText.replaceAll('set CLASSPATH=.*', 'rem original CLASSPATH declaration replaced by:\nset CLASSPATH=%APP_HOME%\\\\lib\\\\\\*')
+        winScriptFile.text = winFileText
+    }
+}
