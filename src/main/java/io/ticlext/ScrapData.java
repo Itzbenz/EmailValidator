@@ -11,7 +11,7 @@ import java.util.ArrayList;
 import java.util.List;
 
 public abstract class ScrapData<T> implements Serializable {
-    public static transient Gson gson = new Gson();
+    public static final transient Gson gson = new Gson();
     public URL nextURL;
     public List<T> places = new ArrayList<>();
     public int maxPage, page;

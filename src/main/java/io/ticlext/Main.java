@@ -2,6 +2,9 @@ package io.ticlext;
 
 import Atom.Time.Timer;
 import Atom.Utility.Pool;
+import io.ticlext.hotel.HotelPage;
+import io.ticlext.restaurant.RestaurantPlace;
+import io.ticlext.restaurant.RestaurantPlaceScrapData;
 import me.tongfei.progressbar.ProgressBar;
 import org.jsoup.Jsoup;
 import org.jsoup.nodes.Document;
@@ -16,13 +19,17 @@ import java.util.*;
 import java.util.concurrent.Executors;
 import java.util.concurrent.Future;
 import java.util.concurrent.TimeUnit;
+import java.util.regex.Pattern;
 
 public class Main {
-    static final HashMap<String, String> headers = new HashMap<>();
+    public static final Pattern emailRegex = Pattern.compile(
+            "[a-z0-9!#$%&'*+/=?^_`{|}~-]+(?:\\.[a-z0-9!#$%&'*+/=?^_`{|}~-]+)*@(?:[a-z0-9](?:[a-z0-9-]*[a-z0-9])?\\.)+[a-z0-9](?:[a-z0-9-]*[a-z0-9])?");
     static URL restaurantsURL = safeURL("https://www.tripadvisor.com/Restaurants-g4-Europe.html"), hotelsURL = safeURL(
             "https://www.tripadvisor.com/Hotels-g4-Europe-Hotels.html");
-    static String baseURL = "https://www.tripadvisor.com";
+    static final Properties headers = new Properties();
     static File saveFile = new File("ScrapDataCheckpoint.json");
+    public static String baseURL = "https://www.tripadvisor.com";
+    static File headerFile = new File("header.properties");
     
     public static URL safeURL(String url) {
         try {
@@ -32,19 +39,30 @@ public class Main {
         }
     }
     
-    public static void readHeader(String headerFile) {
-        try {
-            BufferedReader br = new BufferedReader(new InputStreamReader(new FileInputStream(headerFile)));
-            String line;
-            while ((line = br.readLine()) != null) {
-                if (line.isEmpty() || line.startsWith("#") || line.startsWith(":")){
-                    continue;
-                }
-                String[] parts = line.split(":");
-                headers.put(parts[0].toLowerCase(), parts[1]);
-            }
-        }catch(Exception e){
-            throw new RuntimeException(e);
+    static {
+        headers.setProperty("User-Agent",
+                "Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/98.0.4758.80 Safari/537.36");
+        headers.setProperty("Accept",
+                "text/html,application/xhtml+xml,application/xml;q=0.9,image/webp,image/apng,*/*;q=0.8");
+        headers.setProperty("Accept-Language", "en-US,en;q=0.9");
+        headers.setProperty("Upgrade-Insecure-Requests", "1");
+    }
+    
+    public static void saveHeader(File headerFile) {
+        try(FileOutputStream fos = new FileOutputStream(headerFile)) {
+            headers.store(fos, "Header");
+        }catch(IOException e){
+            System.err.println("Error saving header file");
+        }
+    }
+    
+    public static void readHeader(File headerFile) {
+        
+        try(FileInputStream fis = new FileInputStream(headerFile)) {
+            headers.clear();
+            headers.load(fis);
+        }catch(IOException e){
+            System.err.println("Error reading header file");
         }
         headers.remove("accept-encoding");
     }
@@ -94,20 +112,19 @@ public class Main {
                 System.err.println("Error: " + e.getMessage());
             }
         }
-        File headerFile = new File("header.txt");
-        if (headerFile.exists()){
-            readHeader("header.txt");
-        }
         
-        Pool.parallelSupplier = () -> Executors.newFixedThreadPool(Math.max((Runtime.getRuntime()
-                .availableProcessors()) * 3, 2), (r) -> {
+        if (headerFile.exists()){
+            readHeader(headerFile);
+        }
+        int thread = Math.max((Runtime.getRuntime().availableProcessors()) * 3, 1);
+        Pool.parallelSupplier = () -> Executors.newFixedThreadPool(thread, (r) -> {
             Thread t = Executors.defaultThreadFactory().newThread(r);
             t.setName(t.getName() + "-Atomic-Executor");
             t.setDaemon(true);
             return t;
         });
         Pool.parallelAsync = Pool.parallelSupplier.get();
-        System.out.println("Using " + Math.max((Runtime.getRuntime().availableProcessors()) * 2, 2) + " threads");
+        System.out.println("Using " + thread + " threads");
         final Map<String, PrintStream> writers = Collections.synchronizedMap(new HashMap<>());
         RestaurantPlaceScrapData sc = null;
         
@@ -233,8 +250,9 @@ public class Main {
     
     public static String getHTTP(URL url) throws IOException {
         HttpURLConnection con = (HttpURLConnection) url.openConnection();
-        for (String key : headers.keySet()) {
-            con.setRequestProperty(key, headers.get(key));
+        for (Object o : headers.keySet()) {
+            String key = String.valueOf(o);
+            con.setRequestProperty(key, headers.getProperty(key));
         }
         con.setRequestMethod("GET");
         con.setDoOutput(true);
@@ -245,6 +263,10 @@ public class Main {
         String line;
         while ((line = br.readLine()) != null) {
             sb.append(line);
+        }
+        if (con.getHeaderField("Set-Cookie") != null){
+            headers.setProperty("Cookie", con.getHeaderField("Set-Cookie"));
+            saveHeader(headerFile);
         }
         return sb.toString();
     }

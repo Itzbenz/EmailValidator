@@ -1,14 +1,15 @@
-package io.ticlext;
+package io.ticlext.hotel;
 
 import Atom.Reflect.UnThread;
 import Atom.Utility.Pool;
+import io.ticlext.Main;
+import io.ticlext.ScrapData;
 import me.tongfei.progressbar.ProgressBar;
 import org.jsoup.Jsoup;
 import org.jsoup.nodes.Document;
 import org.jsoup.nodes.Element;
 
 import java.io.IOException;
-import java.io.Serializable;
 import java.net.MalformedURLException;
 import java.net.URL;
 import java.util.ArrayList;
@@ -18,9 +19,9 @@ import java.util.concurrent.Future;
 import java.util.function.Consumer;
 import java.util.regex.Matcher;
 
-import static io.ticlext.RestaurantPlace.emailRegex;
+import static io.ticlext.Main.emailRegex;
 
-public class HotelPage extends ScrapData<HotelPage.Hotel> {
+public class HotelPage extends ScrapData<Hotel> {
     private final transient List<Future<String>> futures = new ArrayList<>();
     private transient Future<String> htmlCache = null;
     
@@ -163,9 +164,5 @@ public class HotelPage extends ScrapData<HotelPage.Hotel> {
         }
     }
     
-    public static class Hotel implements Serializable {
-        public String name;
-        public String email;
-        public String country;
-    }
+    
 }

@@ -1,4 +1,6 @@
-package io.ticlext;
+package io.ticlext.restaurant;
+
+import io.ticlext.ScrapData;
 
 import java.io.File;
 import java.io.FileNotFoundException;

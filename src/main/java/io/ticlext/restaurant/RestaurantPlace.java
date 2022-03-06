@@ -1,7 +1,9 @@
-package io.ticlext;
+package io.ticlext.restaurant;
 
 import Atom.Reflect.UnThread;
 import Atom.Utility.Pool;
+import io.ticlext.Main;
+import io.ticlext.ScrapData;
 import me.tongfei.progressbar.ProgressBar;
 import org.jsoup.Jsoup;
 import org.jsoup.nodes.Document;
@@ -17,11 +19,9 @@ import java.util.concurrent.ExecutionException;
 import java.util.concurrent.Future;
 import java.util.function.Consumer;
 import java.util.regex.Matcher;
-import java.util.regex.Pattern;
 
 public class RestaurantPlace implements Serializable {
-    public static final Pattern emailRegex = Pattern.compile(
-            "[a-z0-9!#$%&'*+/=?^_`{|}~-]+(?:\\.[a-z0-9!#$%&'*+/=?^_`{|}~-]+)*@(?:[a-z0-9](?:[a-z0-9-]*[a-z0-9])?\\.)+[a-z0-9](?:[a-z0-9-]*[a-z0-9])?");
+    
     public String name;
     public URL url;
     private transient Future<String> htmlCache;
@@ -43,7 +43,7 @@ public class RestaurantPlace implements Serializable {
         for (Element e : elements) {
             if (e.text().equals("Email")){
                 restaurant.email = e.parent().attr("href").trim();
-                Matcher matcher = emailRegex.matcher(restaurant.email);
+                Matcher matcher = Main.emailRegex.matcher(restaurant.email);
                 if (matcher.find()){
                     restaurant.email = matcher.group();
                 }
