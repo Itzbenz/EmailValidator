@@ -1,7 +1,7 @@
 package io.ticlext.hotel;
 
 import Atom.Reflect.UnThread;
-import Atom.Utility.Pool;
+import Atom.Utility.Random;
 import io.ticlext.Main;
 import io.ticlext.Scrapper;
 import me.tongfei.progressbar.ProgressBar;
@@ -12,8 +12,7 @@ import org.jsoup.nodes.Element;
 import java.io.IOException;
 import java.net.MalformedURLException;
 import java.net.URL;
-import java.util.ArrayList;
-import java.util.List;
+import java.util.function.Consumer;
 import java.util.regex.Matcher;
 
 import static io.ticlext.Main.emailRegex;
@@ -28,16 +27,14 @@ public class HotelRegionPage extends Scrapper<String> {
     }
     
     protected String name;
-    protected List<Hotel> hotels = new ArrayList<>();
+    protected Consumer<Hotel> onData;
     
-    public HotelRegionPage(String name, URL url) {
+    public HotelRegionPage(String name, URL url, Consumer<Hotel> onData) {
         this.name = name;
         setNextURL(url);
+        this.onData = onData;
     }
     
-    public List<Hotel> getHotels() {
-        return hotels;
-    }
     
     public static boolean hotelSatisfyNeed(Element e) {
         boolean need = false;
@@ -54,6 +51,7 @@ public class HotelRegionPage extends Scrapper<String> {
     
     protected void onFuture(String html) {
         try {
+            if (html == null || html.isEmpty()) return;
             Document doc2 = Jsoup.parse(html);
             Hotel hotel = new Hotel();
             hotel.name = doc2.getElementsByClass("header heading masthead masthead_h1 ").get(0).text();
@@ -64,8 +62,8 @@ public class HotelRegionPage extends Scrapper<String> {
                     hotel.email = match.group();
                 }
             }catch(Exception ignored){}
-            hotel.country = doc2.getElementsByClass("breadcrumbs").get(0).children().get(1).text();
-            hotels.add(hotel);
+            hotel.country = doc2.getElementsByClass("breadcrumbs").get(0).children().get(Main.sortBy.ordinal()).text();
+            onData.accept(hotel);
         }catch(Exception e){
             e.printStackTrace();
             UnThread.sleep(10000);//fix bug on runtime speedrun
@@ -85,12 +83,19 @@ public class HotelRegionPage extends Scrapper<String> {
     void scrapItems(Document doc) {
         
         for (Element e : doc.getElementsByClass("listing_title")) {
-            if (!hotelSatisfyNeed(e)) continue;
+            if (!hotelSatisfyNeed(e)){
+                process(() -> {
+                    UnThread.sleep(Random.getInt(120, 8000));
+                    return "";
+                });
+                continue;
+            }
+            ;
             try {
                 URL url2 = new URL(Main.baseURL + e.select("a").get(0).attr("href"));
-                futures.add(Pool.submit(() -> Main.getHTTP(url2)));
+                process(() -> Main.getHTTP(url2));
             }catch(MalformedURLException ignored){
-            
+        
             }
         }
     }

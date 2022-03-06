@@ -13,10 +13,7 @@ import java.net.HttpURLConnection;
 import java.net.MalformedURLException;
 import java.net.URL;
 import java.nio.charset.StandardCharsets;
-import java.util.Collections;
-import java.util.HashMap;
-import java.util.Map;
-import java.util.Properties;
+import java.util.*;
 import java.util.concurrent.Executors;
 import java.util.concurrent.TimeUnit;
 import java.util.regex.Pattern;
@@ -30,6 +27,9 @@ public class Main {
     static File saveFile = new File("ScrapDataCheckpoint.json");
     public static String baseURL = "https://www.tripadvisor.com";
     static File headerFile = new File("header.properties");
+    
+    public static SortBy sortBy = SortBy.COUNTRY;
+    static File dataFolder;
     
     public static URL safeURL(String url) {
         try {
@@ -49,6 +49,12 @@ public class Main {
     }
     
     static final Map<String, PrintStream> writers = Collections.synchronizedMap(new HashMap<>());
+    
+    public static void setDataFolder(String dataFolder) {
+        Main.dataFolder = new File(dataFolder);
+        if (!Main.dataFolder.exists()) Main.dataFolder.mkdirs();
+    }
+    
     public static void saveHeader(File headerFile) {
         try(FileOutputStream fos = new FileOutputStream(headerFile)) {
             headers.store(fos, "Header");
@@ -116,6 +122,7 @@ public class Main {
                 System.err.println("Error: " + e.getMessage());
             }
         }
+        /*
         while (first) {
             try {
                 System.out.print("Enter Hotels URL to scrap [" + restaurantsURL + "]: ");
@@ -131,11 +138,52 @@ public class Main {
             }
         }
         
+         */
+    
+        while (first) {
+            try {
+                //System.out.print("Enter Data Folder: [data/]: ");
+                //String url = br.readLine();
+                String url = "";
+                if (false){
+                    throw new IOException("Invalid folder");
+                }
+                if (url.length() > 0){
+                    setDataFolder(url);
+                }else{
+                    setDataFolder("data/");
+                }
+                break;
+            }catch(MalformedURLException e){
+                System.err.println("Invalid URL");
+            }catch(IOException e){
+                System.err.println("Error: " + e.getMessage());
+            }
+        }
+    
+    
+        while (first) {
+            try {
+                System.out.println("Sort By: " + Arrays.toString(SortBy.values()));
+                System.out.print("Sort by [" + sortBy + "]: ");
+                String val = br.readLine();
+                if (val.length() > 0){
+                    sortBy = SortBy.valueOf(val);
+                }
+                break;
+            }catch(MalformedURLException e){
+                System.err.println("Invalid URL");
+            }catch(IOException e){
+                System.err.println("Error: " + e.getMessage());
+            }
+        }
+    
+    
         if (headerFile.exists()){
             readHeader(headerFile);
         }
         //set thread
-        int thread = Math.max((Runtime.getRuntime().availableProcessors()) * 2, 1);
+        int thread = Math.max((Runtime.getRuntime().availableProcessors()), 1);
         Pool.parallelSupplier = () -> Executors.newFixedThreadPool(thread, (r) -> {
             Thread t = Executors.defaultThreadFactory().newThread(r);
             t.setName(t.getName() + "-Atomic-Executor");
@@ -149,18 +197,14 @@ public class Main {
     
         Thread hotelScrapper = null, restaurantScrapper = null;
         File hotelFile = new File(hotelsURL.getFile()), restaurantFile = new File(restaurantsURL.getFile());
-        if (first && !hotelFile.exists()){
+        if (false && !hotelFile.exists()){
             System.out.println("Scrapping hotels: " + hotelsURL);
             HotelRegionPage.desc();
-            HotelContinentScrapper regionScrapper = new HotelContinentScrapper(hotelsURL, hr -> {
-                hr.getHotels()
-                        .stream()
-                        .filter(hotel -> hotel.email != null && hotel.email.length() > 0)
-                        .forEach(hotel -> {
-                            String country = hotel.country;
-                            String email = hotel.email;
-                            write(country, email);
-                        });
+            HotelContinentScrapper regionScrapper = new HotelContinentScrapper(hotelsURL, hotel -> {
+                String country = hotel.country;
+                String email = hotel.email;
+                write(country, email);
+            
             });
             hotelScrapper = regionScrapper.init();
             hotelScrapper.join();
@@ -169,20 +213,20 @@ public class Main {
         if (first && !restaurantFile.exists()){
             System.out.println("Scrapping restaurants: " + restaurantsURL);
             RestaurantRegionPage.desc();
-            RestaurantContinentScrapper regionScrapper = new RestaurantContinentScrapper(restaurantsURL, hr -> {
-                hr.getRestaurants()
-                        .stream()
-                        .filter(restaurant -> restaurant.email != null && restaurant.email.length() > 0)
-                        .forEach(restaurant -> {
-                            String country = restaurant.country;
-                            String email = restaurant.email;
-                            write(country, email);
-                        });
+            RestaurantContinentScrapper regionScrapper = new RestaurantContinentScrapper(restaurantsURL, restaurant -> {
+                String country = restaurant.country;
+                String email = restaurant.email;
+                write(country, email);
             });
+    
             restaurantScrapper = regionScrapper.init();
             restaurantScrapper.join();
             FileUtility.write(restaurantFile, "Done".getBytes(StandardCharsets.UTF_8));
         }
+    }
+    
+    public static enum SortBy {
+        CONTINENT, COUNTRY, REGION, CITY;
     }
     
     

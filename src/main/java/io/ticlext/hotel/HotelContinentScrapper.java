@@ -16,15 +16,15 @@ import java.util.function.Consumer;
 
 public class HotelContinentScrapper extends Scrapper<HotelRegionPage> {
     protected boolean first = true;
-    protected transient Consumer<HotelRegionPage> onData;
+    protected transient Consumer<Hotel> onData;
     
-    public HotelContinentScrapper(URL baseURL, Consumer<HotelRegionPage> onData) throws IOException {
+    public HotelContinentScrapper(URL baseURL, Consumer<Hotel> onData) {
         nextURL = baseURL;
         this.onData = onData;
-        firstRun();
+        
     }
     
-    public HotelContinentScrapper setOnData(Consumer<HotelRegionPage> onData) {
+    public HotelContinentScrapper setOnData(Consumer<Hotel> onData) {
         this.onData = onData;
         return this;
     }
@@ -51,7 +51,7 @@ public class HotelContinentScrapper extends Scrapper<HotelRegionPage> {
             try {
                 URL url = new URL(Main.baseURL + e.attr("href"));
                 String name = e.getElementsByClass("name").get(0).text();
-                HotelRegionPage item = new HotelRegionPage(name, url);
+                HotelRegionPage item = new HotelRegionPage(name, url, onData);
                 items.add(item);
             }catch(MalformedURLException ignored){
     
@@ -69,7 +69,7 @@ public class HotelContinentScrapper extends Scrapper<HotelRegionPage> {
     
     @Override
     protected void onFuture(HotelRegionPage hotelRegionPage) {
-        onData.accept(hotelRegionPage);
+    
     }
     
     void processPage(final List<HotelRegionPage> items) {
@@ -84,7 +84,14 @@ public class HotelContinentScrapper extends Scrapper<HotelRegionPage> {
     
     @Override
     public void run() {
-        if (first) throw new IllegalStateException("Invalid state, firstRun() must be called before run()");
+        if (first){
+            try {
+                firstRun();
+            }catch(IOException e){
+                e.printStackTrace();
+                return;
+            }
+        }
         try(ProgressBar pb = new ProgressBar(this.getClass().getSimpleName(), -1)) {
             while (nextURL != null) {
                 try {

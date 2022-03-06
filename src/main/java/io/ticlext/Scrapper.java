@@ -81,8 +81,9 @@ public abstract class Scrapper<T> implements Serializable, Runnable {
                     pb.step();
                 }
             }
-            UnThread.sleep(250);
+    
             if (!wait) break;
+            else UnThread.sleep(250);
         }
     }
     

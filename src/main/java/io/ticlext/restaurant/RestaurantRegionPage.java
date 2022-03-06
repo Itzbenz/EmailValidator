@@ -11,26 +11,23 @@ import org.jsoup.select.Elements;
 import java.io.IOException;
 import java.net.MalformedURLException;
 import java.net.URL;
-import java.util.ArrayList;
-import java.util.List;
+import java.util.function.Consumer;
 import java.util.regex.Matcher;
 
 public class RestaurantRegionPage extends Scrapper<String> {
     protected String name;
-    protected List<Restaurant> restaurants = new ArrayList<>();
+    protected transient Consumer<Restaurant> onData;
     
-    public RestaurantRegionPage(String regionName, URL url) {
+    public RestaurantRegionPage(String regionName, URL url, Consumer<Restaurant> onData) {
         setNextURL(url);
         this.name = regionName;
+        this.onData = onData;
     }
     
     public static void desc() {
         System.out.println("Scrapping every restaurant in the continent");
     }
     
-    public List<Restaurant> getRestaurants() {
-        return restaurants;
-    }
     
     public Restaurant scrap(Document doc) {
         Restaurant restaurant = new Restaurant();
@@ -46,7 +43,7 @@ public class RestaurantRegionPage extends Scrapper<String> {
                 }
             }
         }
-        restaurant.country = restaurant.address.split(" ")[restaurant.address.split(" ").length - 1];
+        restaurant.country = doc.getElementsByClass("breadcrumbs").get(0).children().get(Main.sortBy.ordinal()).text();
         return restaurant;
     }
     
@@ -54,7 +51,8 @@ public class RestaurantRegionPage extends Scrapper<String> {
     protected void onFuture(String s) {
         Document doc = Jsoup.parse(s);
         try {
-            restaurants.add(scrap(doc));
+            Restaurant res = scrap(doc);
+            onData.accept(res);
         }catch(Exception ignored){
         
         }

@@ -14,14 +14,15 @@ import java.util.function.Consumer;
 
 public class RestaurantContinentScrapper extends Scrapper<RestaurantRegionPage> {
     protected boolean first = true;
-    protected transient Consumer<RestaurantRegionPage> onData;
+    protected transient Consumer<Restaurant> onData;
     
-    public RestaurantContinentScrapper(URL url, Consumer<RestaurantRegionPage> onData) {
+    public RestaurantContinentScrapper(URL url, Consumer<Restaurant> onData) {
         nextURL = url;
         this.onData = onData;
+        
     }
     
-    public RestaurantContinentScrapper setOnData(Consumer<RestaurantRegionPage> onData) {
+    public RestaurantContinentScrapper setOnData(Consumer<Restaurant> onData) {
         this.onData = onData;
         return this;
     }
@@ -34,14 +35,15 @@ public class RestaurantContinentScrapper extends Scrapper<RestaurantRegionPage> 
         setNextURL(nextPage);
         for (Element d : doc.select("div.geo_name")) {
             RestaurantRegionPage r = new RestaurantRegionPage(d.text().trim(),
-                    new URL(Main.baseURL + d.select("a").attr("href")));
+                    new URL(Main.baseURL + d.select("a").attr("href")),
+                    onData);
             process(r);
         }
     }
     
     @Override
     protected void onFuture(RestaurantRegionPage restaurantRegionPage) {
-        onData.accept(restaurantRegionPage);
+    
     }
     
     protected void process(final RestaurantRegionPage r) {
@@ -68,7 +70,8 @@ public class RestaurantContinentScrapper extends Scrapper<RestaurantRegionPage> 
             try {
                 pl = pl.child(0);
                 RestaurantRegionPage r = new RestaurantRegionPage(pl.text().trim(),
-                        new URL(Main.baseURL + pl.attr("href")));
+                        new URL(Main.baseURL + pl.attr("href")),
+                        onData);
                 process(r);
             }catch(Exception ignored){
             
@@ -84,7 +87,14 @@ public class RestaurantContinentScrapper extends Scrapper<RestaurantRegionPage> 
     
     @Override
     public void run() {
-        if (!first) throw new IllegalStateException("Invalid state, firstRun() must be called before run()");
+        if (first){
+            try {
+                firstTime();
+            }catch(IOException e){
+                e.printStackTrace();
+                return;
+            }
+        }
         try(ProgressBar pb = new ProgressBar(getClass().getSimpleName(), -1)) {
             while (nextURL != null) {
                 try {
