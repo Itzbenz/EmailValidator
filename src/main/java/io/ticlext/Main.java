@@ -4,7 +4,9 @@ import Atom.File.FileUtility;
 import Atom.Time.Timer;
 import Atom.Utility.Pool;
 import io.ticlext.hotel.HotelContinentScrapper;
+import io.ticlext.hotel.HotelRegionPage;
 import io.ticlext.restaurant.RestaurantContinentScrapper;
+import io.ticlext.restaurant.RestaurantRegionPage;
 
 import java.io.*;
 import java.net.HttpURLConnection;
@@ -74,7 +76,7 @@ public class Main {
         if (!emailRegex.matcher(email).matches()) return;
         if (!writers.containsKey(country)){
             try {
-                writers.put(country, new PrintStream(new FileOutputStream(country + ".txt"), true));
+                writers.put(country, new PrintStream(new FileOutputStream("data/" + country + ".txt"), true));
             }catch(FileNotFoundException e){
                 System.err.println("Error opening file: " + country + ".txt");
                 return;
@@ -133,7 +135,7 @@ public class Main {
             readHeader(headerFile);
         }
         //set thread
-        int thread = Math.max((Runtime.getRuntime().availableProcessors()) * 3, 1);
+        int thread = Math.max((Runtime.getRuntime().availableProcessors()) * 2, 1);
         Pool.parallelSupplier = () -> Executors.newFixedThreadPool(thread, (r) -> {
             Thread t = Executors.defaultThreadFactory().newThread(r);
             t.setName(t.getName() + "-Atomic-Executor");
@@ -146,9 +148,10 @@ public class Main {
     
     
         Thread hotelScrapper = null, restaurantScrapper = null;
-        File hotelFile = new File("hotels.txt"), restaurantFile = new File("restaurants.txt");
+        File hotelFile = new File(hotelsURL.getFile()), restaurantFile = new File(restaurantsURL.getFile());
         if (first && !hotelFile.exists()){
-            System.out.println("Scrapping hotels");
+            System.out.println("Scrapping hotels: " + hotelsURL);
+            HotelRegionPage.desc();
             HotelContinentScrapper regionScrapper = new HotelContinentScrapper(hotelsURL, hr -> {
                 hr.getHotels()
                         .stream()
@@ -164,7 +167,8 @@ public class Main {
             FileUtility.write(hotelFile, "Done".getBytes(StandardCharsets.UTF_8));
         }
         if (first && !restaurantFile.exists()){
-            System.out.println("Scrapping restaurants");
+            System.out.println("Scrapping restaurants: " + restaurantsURL);
+            RestaurantRegionPage.desc();
             RestaurantContinentScrapper regionScrapper = new RestaurantContinentScrapper(restaurantsURL, hr -> {
                 hr.getRestaurants()
                         .stream()
@@ -198,7 +202,7 @@ public class Main {
         while ((line = br.readLine()) != null) {
             sb.append(line);
         }
-        if (con.getHeaderField("Set-Cookie") != null){
+        if (!headers.containsKey("Cookie")){
             headers.setProperty("Cookie", con.getHeaderField("Set-Cookie"));
             saveHeader(headerFile);
         }

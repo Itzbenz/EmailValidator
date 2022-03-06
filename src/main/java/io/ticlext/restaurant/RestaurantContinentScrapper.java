@@ -85,7 +85,7 @@ public class RestaurantContinentScrapper extends Scrapper<RestaurantRegionPage> 
     @Override
     public void run() {
         if (!first) throw new IllegalStateException("Invalid state, firstRun() must be called before run()");
-        try(ProgressBar pb = new ProgressBar("Scrapping Restaurants", -1)) {
+        try(ProgressBar pb = new ProgressBar(getClass().getSimpleName(), -1)) {
             while (nextURL != null) {
                 try {
                     scrapPage();

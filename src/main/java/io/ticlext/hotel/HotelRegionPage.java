@@ -20,7 +20,11 @@ import static io.ticlext.Main.emailRegex;
 
 public class HotelRegionPage extends Scrapper<String> {
     static {
-        System.out.println("Scrapping Hotel that contain restaurant");
+    
+    }
+    
+    public static void desc() {
+        System.out.println("Scrapping Hotel that only contain restaurant");
     }
     
     protected String name;

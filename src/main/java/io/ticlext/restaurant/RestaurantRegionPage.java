@@ -24,6 +24,10 @@ public class RestaurantRegionPage extends Scrapper<String> {
         this.name = regionName;
     }
     
+    public static void desc() {
+        System.out.println("Scrapping every restaurant in the continent");
+    }
+    
     public List<Restaurant> getRestaurants() {
         return restaurants;
     }

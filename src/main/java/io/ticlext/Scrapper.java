@@ -61,6 +61,7 @@ public abstract class Scrapper<T> implements Serializable, Runnable {
     protected void waitForNextPage(ProgressBar pb) {
         while (htmlCache != null && !htmlCache.isDone()) {
             processFuture(pb, false);
+            UnThread.sleep(250);
         }
     }
     
@@ -69,14 +70,16 @@ public abstract class Scrapper<T> implements Serializable, Runnable {
         while (futures.size() > 0) {
             pb.maxHint(pb.getCurrent() + futures.size());
             for (Future<T> f : new ArrayList<>(futures)) {
-                try {
-                    T t = f.get();
-                    onFuture(t);
-                    
-                }catch(InterruptedException | ExecutionException ignored){
+                if (f.isDone()){
+                    try {
+                        T t = f.get();
+                        onFuture(t);
+            
+                    }catch(InterruptedException | ExecutionException ignored){
+                    }
+                    futures.remove(f);
+                    pb.step();
                 }
-                futures.remove(f);
-                pb.step();
             }
             UnThread.sleep(250);
             if (!wait) break;

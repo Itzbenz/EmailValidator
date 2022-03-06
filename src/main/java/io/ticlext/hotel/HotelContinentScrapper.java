@@ -84,7 +84,7 @@ public class HotelContinentScrapper extends Scrapper<HotelRegionPage> {
     
     @Override
     public void run() {
-        if (!first) throw new IllegalStateException("Invalid state, firstRun() must be called before run()");
+        if (first) throw new IllegalStateException("Invalid state, firstRun() must be called before run()");
         try(ProgressBar pb = new ProgressBar(this.getClass().getSimpleName(), -1)) {
             while (nextURL != null) {
                 try {
