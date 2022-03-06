@@ -186,7 +186,7 @@ public class Main {
                 Pool.daemon(() -> {
                     while (!Thread.interrupted()) {
                         try {
-                            FreeProxyListNet proxy = new FreeProxyListNet();
+                            FreeProxyListNet proxy = new FreeProxyListNet(true);
                             proxySupplier = ThreadLocal.withInitial(proxy);
                             UnThread.sleep(1000 * 60);
                         }catch(Exception e){

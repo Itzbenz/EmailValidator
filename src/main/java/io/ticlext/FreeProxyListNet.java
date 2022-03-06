@@ -26,15 +26,19 @@ public class FreeProxyListNet implements ProxyProvider, Serializable {
     protected ArrayList<FreeProxyItem> items = new ArrayList<>();
     
     public FreeProxyListNet() throws IOException {
-        items = scrap();
+        this(false);
+    }
     
+    public FreeProxyListNet(boolean shut) throws IOException {
+        items = scrap();
+        
         for (FreeProxyItem item : items) {
             if (item.https){
                 proxies.add(item.toProxy());
             }
         }
         ArrayList<Proxy> tests = new ArrayList<>(proxies);
-        System.out.println("Testing " + tests.size() + " proxies...");
+        if (!shut) System.out.println("Testing " + tests.size() + " proxies...");
         proxies.clear();
         ArrayList<Future<Proxy>> futures = new ArrayList<>();
         for (Proxy p : tests) {
@@ -43,7 +47,7 @@ public class FreeProxyListNet implements ProxyProvider, Serializable {
                     ProxyProvider.testProxy(p);
                     return p;
                 }catch(Exception e){
-                    System.err.println(p.address() + " failed: " + e.getMessage());
+                    if (!shut) System.err.println(p.address() + " failed: " + e.getMessage());
                     return null;
                 }
             }));
@@ -62,7 +66,7 @@ public class FreeProxyListNet implements ProxyProvider, Serializable {
         if (proxies.size() == 0){
             throw new IOException("No working proxies found");
         }
-        System.out.println("Loaded " + proxies.size() + " proxies from FreeProxyListNet");
+        if (!shut) System.out.println("Loaded " + proxies.size() + " proxies from FreeProxyListNet");
         gson.toJson(this, new FileWriter("proxies.json"));
     }
     
