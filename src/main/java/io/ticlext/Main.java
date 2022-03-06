@@ -1,20 +1,16 @@
 package io.ticlext;
 
+import Atom.File.FileUtility;
 import Atom.Time.Timer;
 import Atom.Utility.Pool;
 import io.ticlext.hotel.HotelContinentScrapper;
 import io.ticlext.restaurant.RestaurantContinentScrapper;
-import io.ticlext.restaurant.RestaurantPlace;
-import io.ticlext.restaurant.RestaurantPlaceScrapData;
-import org.jsoup.Jsoup;
-import org.jsoup.nodes.Document;
-import org.jsoup.nodes.Element;
-import org.jsoup.select.Elements;
 
 import java.io.*;
 import java.net.HttpURLConnection;
 import java.net.MalformedURLException;
 import java.net.URL;
+import java.nio.charset.StandardCharsets;
 import java.util.Collections;
 import java.util.HashMap;
 import java.util.Map;
@@ -150,11 +146,14 @@ public class Main {
     
     
         Thread hotelScrapper = null, restaurantScrapper = null;
-        if (first){
+        File hotelFile = new File("hotels.txt"), restaurantFile = new File("restaurants.txt");
+        if (first && !hotelFile.exists()){
             System.out.println("Scrapping hotels");
             HotelContinentScrapper regionScrapper = new HotelContinentScrapper(hotelsURL, hr -> {
                 hr.getHotels()
-                        .stream().filter(hotel -> hotel.email != null && hotel.email.length() > 0).forEach(hotel -> {
+                        .stream()
+                        .filter(hotel -> hotel.email != null && hotel.email.length() > 0)
+                        .forEach(hotel -> {
                             String country = hotel.country;
                             String email = hotel.email;
                             write(country, email);
@@ -162,8 +161,9 @@ public class Main {
             });
             hotelScrapper = regionScrapper.init();
             hotelScrapper.join();
+            FileUtility.write(hotelFile, "Done".getBytes(StandardCharsets.UTF_8));
         }
-        if (first){
+        if (first && !restaurantFile.exists()){
             System.out.println("Scrapping restaurants");
             RestaurantContinentScrapper regionScrapper = new RestaurantContinentScrapper(restaurantsURL, hr -> {
                 hr.getRestaurants()
@@ -177,29 +177,10 @@ public class Main {
             });
             restaurantScrapper = regionScrapper.init();
             restaurantScrapper.join();
+            FileUtility.write(restaurantFile, "Done".getBytes(StandardCharsets.UTF_8));
         }
     }
     
-    public static void scrapResto(RestaurantPlaceScrapData sc) throws IOException {
-        //System.out.println("Scrapping " + sc.page + "/" + sc.maxPage + " pages");
-        Document doc = Jsoup.parse(getHTTP(sc.nextURL));
-        for (Element pl : doc.select("ul.geoList").get(0).children()) {
-            pl = pl.child(0);
-            RestaurantPlace p = new RestaurantPlace();
-            p.name = pl.text();
-            p.url = new URL(baseURL + pl.attr("href"));
-            sc.places.add(p);
-        }
-        
-        Elements pageLink = doc.select("div.pgLinks");
-        try {
-            sc.nextURL = new URL(baseURL + pageLink.select("a.guiArw.sprite-pageNext").attr("href"));
-        }catch(Exception ignored){}
-        try {
-            sc.maxPage = Integer.parseInt(pageLink.select("a.paging.taLnk").last().text());
-        }catch(Exception ignored){}
-        sc.page++;
-    }
     
     public static String getHTTP(URL url) throws IOException {
         HttpURLConnection con = (HttpURLConnection) url.openConnection();
@@ -224,18 +205,5 @@ public class Main {
         return sb.toString();
     }
     
-    public static RestaurantPlaceScrapData scrapFirstPage() throws Exception {
-        Document doc = Jsoup.parse(getHTTP(restaurantsURL));
-        URL nextPage = new URL(baseURL + doc.select("a.nav.next.rndBtn.ui_button.primary.taLnk").attr("href"));
-        RestaurantPlaceScrapData scrapData = new RestaurantPlaceScrapData();
-        scrapData.nextURL = nextPage;
-        for (Element d : doc.select("div.geo_name")) {
-            RestaurantPlace place = new RestaurantPlace();
-            place.name = d.text();
-            place.url = new URL(baseURL + d.select("a").attr("href"));
-            scrapData.places.add(place);
-        }
-        scrapData.page = 1;
-        return scrapData;
-    }
+    
 }
