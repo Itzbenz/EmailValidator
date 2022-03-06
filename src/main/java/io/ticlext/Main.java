@@ -190,7 +190,7 @@ public class Main {
                             proxySupplier = ThreadLocal.withInitial(proxy);
                             UnThread.sleep(1000 * 60);
                         }catch(Exception e){
-                            System.err.println("Error: " + e.getMessage());
+                            System.err.println("Error Changing Proxy: " + e.getMessage());
                         }
                     }
                 });
