@@ -12,13 +12,21 @@ import java.net.MalformedURLException;
 import java.net.URL;
 import java.util.ArrayList;
 import java.util.List;
+import java.util.function.Consumer;
 
-public class HotelRegionScrapper extends Scrapper<Void> {
+public class HotelContinentScrapper extends Scrapper<HotelRegionPage> {
     protected boolean first = true;
+    protected transient Consumer<HotelRegionPage> onData;
     
-    public HotelRegionScrapper(URL baseURL) throws IOException {
+    public HotelContinentScrapper(URL baseURL, Consumer<HotelRegionPage> onData) throws IOException {
         nextURL = baseURL;
+        this.onData = onData;
         firstRun();
+    }
+    
+    public HotelContinentScrapper setOnData(Consumer<HotelRegionPage> onData) {
+        this.onData = onData;
+        return this;
     }
     
     void firstRun() throws IOException {
@@ -46,24 +54,29 @@ public class HotelRegionScrapper extends Scrapper<Void> {
                 HotelRegionPage item = new HotelRegionPage(name, url);
                 items.add(item);
             }catch(MalformedURLException ignored){
-            
+    
             }
         }
         return items;
     }
     
     
-    List<HotelRegionPage> scrapPage() throws IOException {
+    void scrapPage() throws IOException {
         Document doc = Jsoup.parse(getHTMLNext());
         setNextURL(scrapNextURL(doc));
-        return scrapPageItems(doc);
+        processPage(scrapPageItems(doc));
     }
     
-    void processPage(List<HotelRegionPage> items) {
-        for (HotelRegionPage item : items) {
+    @Override
+    protected void onFuture(HotelRegionPage hotelRegionPage) {
+        onData.accept(hotelRegionPage);
+    }
+    
+    void processPage(final List<HotelRegionPage> items) {
+        for (final HotelRegionPage item : items) {
             process(() -> {
                 item.init();
-                return null;
+                return item;
             });
         }
     }
@@ -75,9 +88,8 @@ public class HotelRegionScrapper extends Scrapper<Void> {
         try(ProgressBar pb = new ProgressBar(this.getClass().getSimpleName(), -1)) {
             while (nextURL != null) {
                 try {
-                    List<HotelRegionPage> items = scrapPage();
-                    processPage(items);
-                    pb.setExtraMessage("Region");
+                    scrapPage();
+                    pb.setExtraMessage("region");
                     processFuture(pb, true);
                 }catch(Exception e){
                     pb.setExtraMessage(e.getMessage());

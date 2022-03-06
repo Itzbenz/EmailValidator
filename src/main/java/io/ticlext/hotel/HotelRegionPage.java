@@ -28,7 +28,11 @@ public class HotelRegionPage extends Scrapper<String> {
     
     public HotelRegionPage(String name, URL url) {
         this.name = name;
-        nextURL = url;
+        setNextURL(url);
+    }
+    
+    public List<Hotel> getHotels() {
+        return hotels;
     }
     
     public static boolean hotelSatisfyNeed(Element e) {
@@ -73,7 +77,7 @@ public class HotelRegionPage extends Scrapper<String> {
         }
     }
     
-    
+    //filter hotel that contain restaurant and process it
     void scrapItems(Document doc) {
         
         for (Element e : doc.getElementsByClass("listing_title")) {
@@ -107,5 +111,10 @@ public class HotelRegionPage extends Scrapper<String> {
             }
             processFuture(pb, true);
         }
+    }
+    
+    @Override
+    protected boolean nestedThreading() {
+        return false;
     }
 }

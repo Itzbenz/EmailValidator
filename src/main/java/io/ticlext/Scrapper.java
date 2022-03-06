@@ -48,6 +48,7 @@ public abstract class Scrapper<T> implements Serializable, Runnable {
         return Main.getHTTP(nextURL);
     }
     
+    //true if this scrapper employ another scrapper in a nested thread
     protected boolean nestedThreading() {
         return true;
     }

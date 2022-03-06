@@ -2,7 +2,7 @@ package io.ticlext;
 
 import Atom.Time.Timer;
 import Atom.Utility.Pool;
-import io.ticlext.hotel.HotelPage;
+import io.ticlext.hotel.HotelContinentScrapper;
 import io.ticlext.restaurant.RestaurantPlace;
 import io.ticlext.restaurant.RestaurantPlaceScrapData;
 import me.tongfei.progressbar.ProgressBar;
@@ -48,6 +48,7 @@ public class Main {
         headers.setProperty("Upgrade-Insecure-Requests", "1");
     }
     
+    static final Map<String, PrintStream> writers = Collections.synchronizedMap(new HashMap<>());
     public static void saveHeader(File headerFile) {
         try(FileOutputStream fos = new FileOutputStream(headerFile)) {
             headers.store(fos, "Header");
@@ -65,6 +66,23 @@ public class Main {
             System.err.println("Error reading header file");
         }
         headers.remove("accept-encoding");
+    }
+    
+    static Timer saveTime = new Timer(TimeUnit.SECONDS, 10);
+    
+    public static void write(String country, String email) {
+        if (email == null) return;
+        if (email.isEmpty()) return;
+        if (!emailRegex.matcher(email).matches()) return;
+        if (!writers.containsKey(country)){
+            try {
+                writers.put(country, new PrintStream(new FileOutputStream(country + ".txt"), true));
+            }catch(FileNotFoundException e){
+                System.err.println("Error opening file: " + country + ".txt");
+                return;
+            }
+        }
+        writers.get(country).println(email);
     }
     
     public static void main(String[] args) throws Throwable {
@@ -116,6 +134,7 @@ public class Main {
         if (headerFile.exists()){
             readHeader(headerFile);
         }
+        //set thread
         int thread = Math.max((Runtime.getRuntime().availableProcessors()) * 3, 1);
         Pool.parallelSupplier = () -> Executors.newFixedThreadPool(thread, (r) -> {
             Thread t = Executors.defaultThreadFactory().newThread(r);
@@ -125,25 +144,25 @@ public class Main {
         });
         Pool.parallelAsync = Pool.parallelSupplier.get();
         System.out.println("Using " + thread + " threads");
-        final Map<String, PrintStream> writers = Collections.synchronizedMap(new HashMap<>());
-        RestaurantPlaceScrapData sc = null;
+        //set writers
         
         
-        Timer saveTime = new Timer(TimeUnit.SECONDS, 10);
-        if (first && false){
-            HotelPage.scrap(hotelsURL).scrapContinuous(hotel -> {
-                writers.computeIfAbsent(hotel.country, (c) -> {
-                    try {
-                        File kike = new File(hotel.country + ".txt");
-                        return new PrintStream(new FileOutputStream(kike));
-                    }catch(IOException e){
-                        throw new RuntimeException(e);
-                    }
-                });
-                writers.get(hotel.country).println(hotel.email);
-                writers.get(hotel.country).flush();
+        Thread hotelScrapper = null;
+        if (first){
+            HotelContinentScrapper regionScrapper = new HotelContinentScrapper(hotelsURL, hr -> {
+                hr.getHotels()
+                        .stream()
+                        .filter(hotel -> hotel.email != null && hotel.email.length() > 0)
+                        .forEach(hotel -> {
+                            String country = hotel.country;
+                            String email = hotel.email;
+                            write(country, email);
+                        });
             });
+            hotelScrapper = regionScrapper.init();
+            hotelScrapper.join();
         }
+        RestaurantPlaceScrapData sc = null;
         if (!first){
             sc = RestaurantPlaceScrapData.load(saveFile);
         }else{
