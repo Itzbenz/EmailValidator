@@ -38,6 +38,7 @@ public class FreeProxyListNet implements ProxyProvider, Serializable {
                 ProxyProvider.testProxy(p);
                 return true;
             }catch(Exception e){
+                System.err.println(p.address() + " failed: " + e.getMessage());
                 return false;
             }
         }).collect(Collectors.toCollection(ArrayList::new));

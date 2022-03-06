@@ -8,10 +8,15 @@ import java.util.function.Supplier;
 
 public interface ProxyProvider extends Supplier<Proxy> {
     static void testProxy(Proxy proxyProvider) throws IOException {
+        testProxy(proxyProvider, 20 * 1000);
+    }
+    
+    static void testProxy(Proxy proxyProvider, int timeout) throws IOException {
         HttpURLConnection h = (HttpURLConnection) new URL("https://ip-api.com/line?fields=status,proxy,hosting,query").openConnection(
                 proxyProvider);
-        h.setConnectTimeout(5000);
-        h.setReadTimeout(5000);
+        
+        h.setConnectTimeout(timeout);
+        h.setReadTimeout(timeout);
         h.connect();
         int code = h.getResponseCode();
         if (code != 200){
