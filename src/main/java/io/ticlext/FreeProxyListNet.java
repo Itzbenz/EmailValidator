@@ -21,7 +21,7 @@ import java.util.concurrent.Future;
 public class FreeProxyListNet implements ProxyProvider, Serializable {
     public static final URL base = Main.safeURL("https://free-proxy-list.net/");
     public static Gson gson = new GsonBuilder().setPrettyPrinting().create();
-    protected transient ArrayList<Proxy> proxies = new ArrayList<>();
+    protected final transient ArrayList<Proxy> proxies = new ArrayList<>();
     protected ArrayList<FreeProxyItem> items = new ArrayList<>();
     
     public FreeProxyListNet() throws IOException {
@@ -77,12 +77,14 @@ public class FreeProxyListNet implements ProxyProvider, Serializable {
                 e.printStackTrace();
             }
         }
-        proxies.clear();
-        proxies.addAll(good);
-        if (proxies.size() == 0){
-            throw new IOException("No working proxies found");
+        synchronized (proxies) {
+            proxies.clear();
+            proxies.addAll(good);
+            if (proxies.size() == 0){
+                throw new IOException("No working proxies found");
+            }
+            if (!shut) System.out.println("Loaded " + proxies.size() + " proxies from FreeProxyListNet");
         }
-        if (!shut) System.out.println("Loaded " + proxies.size() + " proxies from FreeProxyListNet");
     }
     
     public static ArrayList<FreeProxyItem> scrap() throws IOException {
@@ -109,7 +111,9 @@ public class FreeProxyListNet implements ProxyProvider, Serializable {
     
     @Override
     public Proxy get() {
-        return Random.getRandom(proxies);
+        synchronized (proxies) {
+            return Random.getRandom(proxies);
+        }
     }
     
     public static class FreeProxyItem implements Serializable {
