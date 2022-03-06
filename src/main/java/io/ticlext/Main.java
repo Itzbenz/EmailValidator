@@ -320,6 +320,7 @@ public class Main {
         boolean useProxy = proxySupplier != null;
         while (true) {
             try {
+                useProxy = proxySupplier != null;
                 HttpURLConnection con = (HttpURLConnection) (useProxy ? url.openConnection(proxySupplier.get()) : url.openConnection());
                 Properties head = headers;
                 if (useProxy){
