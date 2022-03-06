@@ -1,6 +1,7 @@
 package io.ticlext;
 
 import Atom.File.FileUtility;
+import Atom.Reflect.UnThread;
 import Atom.Time.Timer;
 import Atom.Utility.Pool;
 import io.ticlext.hotel.HotelContinentScrapper;
@@ -32,7 +33,7 @@ public class Main {
     static File headerFile = new File("header.properties");
     static File dataFolder;
     static Timer saveTime = new Timer(TimeUnit.SECONDS, 10);
-    static ThreadLocal<Proxy> proxySupplier;
+    static volatile ThreadLocal<Proxy> proxySupplier;
     static ThreadLocal<Properties> headersSupplier;
     
     static {
@@ -182,6 +183,17 @@ public class Main {
             String ans = br.readLine().toLowerCase();
             if (ans.equals("y")){
                 proxySupplier = ThreadLocal.withInitial(new FreeProxyListNet());
+                Pool.daemon(() -> {
+                    while (!Thread.interrupted()) {
+                        try {
+                            FreeProxyListNet proxy = new FreeProxyListNet();
+                            proxySupplier = ThreadLocal.withInitial(proxy);
+                            UnThread.sleep(1000 * 60);
+                        }catch(Exception e){
+                            System.err.println("Error: " + e.getMessage());
+                        }
+                    }
+                });
                 break;
             }else if (ans.equals("n")){
                 break;
