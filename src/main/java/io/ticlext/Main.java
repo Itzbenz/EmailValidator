@@ -3,9 +3,9 @@ package io.ticlext;
 import Atom.Time.Timer;
 import Atom.Utility.Pool;
 import io.ticlext.hotel.HotelContinentScrapper;
+import io.ticlext.restaurant.RestaurantContinentScrapper;
 import io.ticlext.restaurant.RestaurantPlace;
 import io.ticlext.restaurant.RestaurantPlaceScrapData;
-import me.tongfei.progressbar.ProgressBar;
 import org.jsoup.Jsoup;
 import org.jsoup.nodes.Document;
 import org.jsoup.nodes.Element;
@@ -15,9 +15,11 @@ import java.io.*;
 import java.net.HttpURLConnection;
 import java.net.MalformedURLException;
 import java.net.URL;
-import java.util.*;
+import java.util.Collections;
+import java.util.HashMap;
+import java.util.Map;
+import java.util.Properties;
 import java.util.concurrent.Executors;
-import java.util.concurrent.Future;
 import java.util.concurrent.TimeUnit;
 import java.util.regex.Pattern;
 
@@ -145,15 +147,14 @@ public class Main {
         Pool.parallelAsync = Pool.parallelSupplier.get();
         System.out.println("Using " + thread + " threads");
         //set writers
-        
-        
-        Thread hotelScrapper = null;
+    
+    
+        Thread hotelScrapper = null, restaurantScrapper = null;
         if (first){
+            System.out.println("Scrapping hotels");
             HotelContinentScrapper regionScrapper = new HotelContinentScrapper(hotelsURL, hr -> {
                 hr.getHotels()
-                        .stream()
-                        .filter(hotel -> hotel.email != null && hotel.email.length() > 0)
-                        .forEach(hotel -> {
+                        .stream().filter(hotel -> hotel.email != null && hotel.email.length() > 0).forEach(hotel -> {
                             String country = hotel.country;
                             String email = hotel.email;
                             write(country, email);
@@ -162,87 +163,20 @@ public class Main {
             hotelScrapper = regionScrapper.init();
             hotelScrapper.join();
         }
-        RestaurantPlaceScrapData sc = null;
-        if (!first){
-            sc = RestaurantPlaceScrapData.load(saveFile);
-        }else{
-            sc = scrapFirstPage();
-        }
-        try(ProgressBar pb = new ProgressBar("Scraping Restaurant", -1)) {
-            while (sc.nextURL != null) {
-                //empty data
-                if (!sc.places.isEmpty()){
-                    try(ProgressBar pb2 = new ProgressBar("Scrapping Location", -1)) {
-                        List<Future<?>> future = new ArrayList<>();
-                        for (RestaurantPlace place : sc.places) {
-                            future.add(Pool.async(() -> {
-                                try {
-                                    place.scrap(d -> {
-                                        String country = d.country;
-                                        writers.computeIfAbsent(country, (c) -> {
-                                            try {
-                                                File kike = new File(country + ".txt");
-                                                return new PrintStream(new FileOutputStream(kike));
-                                            }catch(IOException e){
-                                                throw new RuntimeException(e);
-                                            }
-                                        });
-                                        writers.get(country).println(d.email);
-                                        writers.get(country).flush();
-                                    });
-                                }catch(Exception e){
-                                    System.err.println("Error: " + e.getMessage());
-                                }
-                            }));
-                        }
-                        //
-                        sc.places.clear();
-                        try {
-                            scrapResto(sc);
-                            pb.setExtraMessage("pages");
-                            pb.maxHint(sc.maxPage);
-                            pb.stepTo(sc.page);
-                        }catch(IOException e){
-                            System.err.println("Error: " + e.getMessage());
-                            break;
-                        }
-                        if (saveTime.get()){
-                            try {
-                                sc.save(saveFile);
-                            }catch(IOException e){
-                                System.err.println("Failed to save checkpoint: " + e.getMessage());
-                            }
-                        }
-                        //
-                        pb2.setExtraMessage("locations");
-                        pb2.maxHint(future.size());
-                        pb2.stepTo(0);
-                        for (Future<?> f : future) {
-                            pb2.step();
-                            f.get();
-                        }
-                        
-                    }
-                }
-                
-                try {
-                    scrapResto(sc);
-                    pb.setExtraMessage("pages");
-                    pb.maxHint(sc.maxPage);
-                    pb.stepTo(sc.page);
-                }catch(IOException e){
-                    System.err.println("Error: " + e.getMessage());
-                    break;
-                }
-                if (saveTime.get()){
-                    try {
-                        sc.save(saveFile);
-                    }catch(IOException e){
-                        System.err.println("Failed to save checkpoint: " + e.getMessage());
-                    }
-                }
-                
-            }
+        if (first){
+            System.out.println("Scrapping restaurants");
+            RestaurantContinentScrapper regionScrapper = new RestaurantContinentScrapper(restaurantsURL, hr -> {
+                hr.getRestaurants()
+                        .stream()
+                        .filter(restaurant -> restaurant.email != null && restaurant.email.length() > 0)
+                        .forEach(restaurant -> {
+                            String country = restaurant.country;
+                            String email = restaurant.email;
+                            write(country, email);
+                        });
+            });
+            restaurantScrapper = regionScrapper.init();
+            restaurantScrapper.join();
         }
     }
     

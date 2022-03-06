@@ -44,13 +44,13 @@ public class RestaurantContinentScrapper extends Scrapper<RestaurantRegionPage> 
         onData.accept(restaurantRegionPage);
     }
     
-    protected void process(final RestaurantRegionPage... rr) {
-        for (final RestaurantRegionPage r : rr) {
-            process(() -> {
-                r.init();
-                return r;
-            });
-        }
+    protected void process(final RestaurantRegionPage r) {
+        
+        process(() -> {
+            r.init();
+            return r;
+        });
+        
     }
     
     protected URL getNextURL(Document doc) {
