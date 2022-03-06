@@ -12,9 +12,10 @@ public interface ProxyProvider extends Supplier<Proxy> {
     }
     
     static void testProxy(Proxy proxyProvider, int timeout) throws IOException {
-        HttpURLConnection h = (HttpURLConnection) new URL("https://ip-api.com/line?fields=status,proxy,hosting,query").openConnection(
-                proxyProvider);
-        
+        //"https://ip-api.com/line?fields=status,proxy,hosting,query"
+        String url = Main.baseURL;
+        HttpURLConnection h = (HttpURLConnection) new URL(url).openConnection(proxyProvider);
+    
         h.setConnectTimeout(timeout);
         h.setReadTimeout(timeout);
         h.connect();
