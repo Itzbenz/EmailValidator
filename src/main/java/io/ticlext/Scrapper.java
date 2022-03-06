@@ -42,7 +42,9 @@ public abstract class Scrapper<T> implements Serializable, Runnable {
         if (htmlCache != null && htmlCache.isDone()){
             try {
                 return htmlCache.get();
-            }catch(InterruptedException | ExecutionException ignored){}
+            }catch(InterruptedException | ExecutionException ignored){
+                htmlCache = null;
+            }
         }
         
         return Main.getHTTP(nextURL);
