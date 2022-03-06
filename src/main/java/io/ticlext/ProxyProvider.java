@@ -11,6 +11,10 @@ public interface ProxyProvider extends Supplier<Proxy> {
         testProxy(proxyProvider, 20 * 1000);
     }
     
+    default void update() {
+    
+    }
+    
     static void testProxy(Proxy proxyProvider, int timeout) throws IOException {
         //"https://ip-api.com/line?fields=status,proxy,hosting,query"
         String url = Main.baseURL;

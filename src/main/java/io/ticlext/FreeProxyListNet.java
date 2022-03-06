@@ -9,7 +9,6 @@ import org.jsoup.nodes.Document;
 import org.jsoup.nodes.Element;
 import org.jsoup.select.Elements;
 
-import java.io.FileWriter;
 import java.io.IOException;
 import java.io.Serializable;
 import java.net.InetSocketAddress;
@@ -30,16 +29,30 @@ public class FreeProxyListNet implements ProxyProvider, Serializable {
     }
     
     public FreeProxyListNet(boolean shut) throws IOException {
-        items = scrap();
-        
+        update(shut);
+        //gson.toJson(this, new FileWriter("proxies.json"));
+    }
+    
+    @Override
+    public void update() {
+        try {
+            update(true);
+        }catch(IOException e){
+            System.err.println("Error Changing Proxy: " + e.getMessage());
+        }
+    }
+    
+    public void update(boolean shut) throws IOException {
+        items.clear();
+        items.addAll(scrap());
+        ArrayList<Proxy> tests = new ArrayList<>();
         for (FreeProxyItem item : items) {
             if (item.https){
-                proxies.add(item.toProxy());
+                tests.add(item.toProxy());
             }
         }
-        ArrayList<Proxy> tests = new ArrayList<>(proxies);
+        
         if (!shut) System.out.println("Testing " + tests.size() + " proxies...");
-        proxies.clear();
         ArrayList<Future<Proxy>> futures = new ArrayList<>();
         for (Proxy p : tests) {
             futures.add(Pool.submit(() -> {
@@ -52,24 +65,25 @@ public class FreeProxyListNet implements ProxyProvider, Serializable {
                 }
             }));
         }
+        ArrayList<Proxy> good = new ArrayList<>();
         for (Future<Proxy> f : futures) {
             Proxy p = null;
             try {
                 p = f.get();
                 if (p != null){
-                    proxies.add(p);
+                    good.add(p);
                 }
             }catch(InterruptedException | ExecutionException e){
                 e.printStackTrace();
             }
         }
+        proxies.clear();
+        proxies.addAll(good);
         if (proxies.size() == 0){
             throw new IOException("No working proxies found");
         }
         if (!shut) System.out.println("Loaded " + proxies.size() + " proxies from FreeProxyListNet");
-        gson.toJson(this, new FileWriter("proxies.json"));
     }
-    
     
     public static ArrayList<FreeProxyItem> scrap() throws IOException {
         Document doc = Jsoup.parse(Main.getHTTP(base, true));

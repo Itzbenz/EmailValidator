@@ -12,7 +12,6 @@ import io.ticlext.restaurant.RestaurantRegionPage;
 import java.io.*;
 import java.net.HttpURLConnection;
 import java.net.MalformedURLException;
-import java.net.Proxy;
 import java.net.URL;
 import java.nio.charset.StandardCharsets;
 import java.util.*;
@@ -33,7 +32,7 @@ public class Main {
     static File headerFile = new File("header.properties");
     static File dataFolder;
     static Timer saveTime = new Timer(TimeUnit.SECONDS, 10);
-    static volatile ThreadLocal<Proxy> proxySupplier;
+    static volatile ProxyProvider proxyProvider;
     static ThreadLocal<Properties> headersSupplier;
     
     static {
@@ -182,12 +181,11 @@ public class Main {
             System.out.print("Use proxy? (y/n): ");
             String ans = br.readLine().toLowerCase();
             if (ans.equals("y")){
-                proxySupplier = ThreadLocal.withInitial(new FreeProxyListNet());
+                proxyProvider = new FreeProxyListNet();
                 Pool.daemon(() -> {
                     while (!Thread.interrupted()) {
                         try {
-                            FreeProxyListNet proxy = new FreeProxyListNet(true);
-                            proxySupplier = ThreadLocal.withInitial(proxy);
+                            proxyProvider.update();
                             UnThread.sleep(1000 * 60);
                         }catch(Exception e){
                             System.err.println("Error Changing Proxy: " + e.getMessage());
@@ -317,13 +315,13 @@ public class Main {
     }
     
     public static String getHTTP(URL url, boolean noCookie) throws IOException {
-        boolean useProxy = proxySupplier != null;
+        boolean useProxy = proxyProvider != null;
         int retry = 0;
     
         while (true) {
             try {
-                useProxy = proxySupplier != null;
-                HttpURLConnection con = (HttpURLConnection) (useProxy ? url.openConnection(proxySupplier.get()) : url.openConnection());
+                useProxy = proxyProvider != null;
+                HttpURLConnection con = (HttpURLConnection) (useProxy ? url.openConnection(proxyProvider.get()) : url.openConnection());
                 Properties head = headers;
                 if (useProxy){
                     head = headersSupplier.get();
