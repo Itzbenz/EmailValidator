@@ -33,7 +33,7 @@ public class Main {
     static File dataFolder;
     static Timer saveTime = new Timer(TimeUnit.SECONDS, 10);
     static ThreadLocal<Proxy> proxySupplier;
-    
+    static ThreadLocal<Properties> headersSupplier;
     static {
         headers.setProperty("User-Agent",
                 "Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/98.0.4758.80 Safari/537.36");
@@ -41,6 +41,11 @@ public class Main {
                 "text/html,application/xhtml+xml,application/xml;q=0.9,image/webp,image/apng,*/*;q=0.8");
         headers.setProperty("Accept-Language", "en-US,en;q=0.9");
         headers.setProperty("Upgrade-Insecure-Requests", "1");
+        headersSupplier = ThreadLocal.withInitial(() -> {
+            Properties p = new Properties();
+            p.putAll(headers);
+            return p;
+        });
     }
     
     public static URL safeURL(String url) {
@@ -258,12 +263,21 @@ public class Main {
         return getHTTP(url, false);
     }
     
-    public static String getHTTP(URL url, boolean noCache) throws IOException {
-        HttpURLConnection con = (HttpURLConnection) (proxySupplier == null ? url.openConnection() : url.openConnection(
-                proxySupplier.get()));
-        for (Object o : headers.keySet()) {
+    public static String getHTTP(URL url, boolean noCookie) throws IOException {
+        boolean useProxy = proxySupplier != null;
+        HttpURLConnection con = (HttpURLConnection) (useProxy ? url.openConnection(proxySupplier.get()) : url.openConnection());
+        Properties head = headers;
+        if (useProxy){
+            head = headersSupplier.get();
+        }
+        for (Object o : head.keySet()) {
             String key = String.valueOf(o);
-            con.setRequestProperty(key, headers.getProperty(key));
+            if (noCookie){
+                if (key.equals("Cookie")){
+                    continue;
+                }
+            }
+            con.setRequestProperty(key, head.getProperty(key));
         }
         con.setRequestMethod("GET");
         con.setDoOutput(true);
@@ -275,9 +289,9 @@ public class Main {
         while ((line = br.readLine()) != null) {
             sb.append(line);
         }
-        if (!noCache){
-            if (!headers.containsKey("Cookie")){
-                headers.setProperty("Cookie", con.getHeaderField("Set-Cookie"));
+        if (!noCookie){
+            if (!head.containsKey("Cookie")){
+                head.setProperty("Cookie", con.getHeaderField("Set-Cookie"));
                 saveHeader(headerFile);
             }
         }

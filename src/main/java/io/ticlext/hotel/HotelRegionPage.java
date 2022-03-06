@@ -37,7 +37,7 @@ public class HotelRegionPage extends Scrapper<String> {
         try {
             if (name.contains("(") && name.contains(")")){
                 this.numberOfHotel = Integer.parseInt(name.substring(name.indexOf("(") + 1, name.indexOf(")")));
-                name = name.substring(0, name.indexOf("("));
+                this.name = name.substring(0, name.indexOf("("));
             }
         }catch(Exception ignored){}
     }
