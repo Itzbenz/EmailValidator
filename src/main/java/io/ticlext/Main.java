@@ -51,6 +51,9 @@ public class Main {
             }
             if (target.exists()){
                 if (target.isDirectory()){
+                    if (source.isFile()){
+                        target = new File(target, source.getName());
+                    }
                     break;
                 }else{
                     System.out.println("File already exists, try another file");
@@ -114,8 +117,9 @@ public class Main {
                         }
                     }
                 }
+                Atom.Reflect.UnThread.sleep(250);
             }
-            Atom.Reflect.UnThread.sleep(250);
+    
         }
         System.out.println("Summary:");
         for (Report report : reports) {
@@ -138,46 +142,54 @@ public class Main {
         }
     }
     
+    public static String checkEmail(Report report, String line) {
+        line = line.toLowerCase().trim();
+        if (line.isEmpty()){
+            return null;
+        }
+        for (char c : line.toCharArray()) {
+            if (c == '@') report.possibleEmailsCount++;
+        }
+        Matcher matcher = emailRegex.matcher(line);
+        if (matcher.find()){
+            String email = matcher.group();
+            if (!email.isEmpty()){
+                String[] parts = email.split("@");
+                if (parts.length == 2){
+                    String domain = parts[1];
+                    if (emailDomainValid(domain)){
+                        return email;
+                    }else{
+                        report.invalidDomains++;
+                    }
+                }else{
+                    report.invalidEmails++;
+                }
+            }
+            
+            
+        }else if (!line.isEmpty()){
+            report.invalidEmails++;
+        }
+        return null;
+    }
+    
     public static Report validateEmailList(File file, File outputDir) {
         Report report = new Report(file);
         long max = 0;
         try(ProgressBar pb = new ProgressBar(file.getName(), max)) {
-            HashSet<String> lines = new HashSet<>();
+            HashSet<String> emails = new HashSet<>();
+            ArrayList<String> lines = new ArrayList<>();
             try(BufferedReader br = new BufferedReader(new FileReader(file))) {
                 String line;
                 while ((line = br.readLine()) != null) {
-                    line = line.toLowerCase();
-                    for (char c : line.toCharArray()) {
-                        if (c == '@') report.possibleEmailsCount++;
-                    }
-                    Matcher matcher = emailRegex.matcher(line);
-                    if (matcher.find()){
-                        String email = matcher.group();
-                        if (!email.isEmpty()){
-                            String[] parts = email.split("@");
-                            if (parts.length == 2){
-                                String domain = parts[1];
-                                if (emailDomainValid(domain)){
-                                    if (lines.add(email)){
-                                        report.validEmails++;
-                                    }else{
-                                        report.duplicateEmails++;
-                                    }
-                                }else{
-                                    report.invalidDomains++;
-                                }
-                            }else{
-                                report.invalidEmails++;
-                            }
-                        }
-                        
-                        
-                    }else if (!line.isEmpty()){
-                        report.invalidEmails++;
-                    }
+                    lines.add(line);
+                    
                     report.totalLines++;
                     max++;
                     max++;
+                    max++;
+                    pb.maxHint(max);
                     pb.step();
                 }
             }catch(IOException e){
@@ -185,10 +197,20 @@ public class Main {
                 throw e;
                 
             }
+            for (String line : lines) {
+                String email = checkEmail(report, line);
+                if (email == null) continue;
+                if (emails.add(email)){
+                    report.validEmails++;
+                }else{
+                    report.duplicateEmails++;
+                }
+                pb.step();
+            }
             File newFile = outputDir.isDirectory() ? new File(outputDir, file.getName()) : outputDir;
             FileUtility.makeFile(newFile);
             try(BufferedWriter bw = new BufferedWriter(new FileWriter(newFile))) {
-                for (String line2 : lines) {
+                for (String line2 : emails) {
                     bw.write(line2);
                     bw.newLine();
                     pb.step();
@@ -234,7 +256,9 @@ public class Main {
                     .append(possibleEmailsCount)
                     .append(System.lineSeparator());
             if (error != null){
-                sb.append("Error: ").append(error.getMessage()).append(System.lineSeparator());
+                sb.append("Error: ")
+                        .append(error.getMessage() == null ? error : error.getMessage())
+                        .append(System.lineSeparator());
             }
             return sb.toString();
         }
