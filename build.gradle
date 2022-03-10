@@ -15,8 +15,6 @@ dependencies {
     testImplementation 'org.junit.jupiter:junit-jupiter-api:5.7.0'
     testRuntimeOnly 'org.junit.jupiter:junit-jupiter-engine:5.7.0'
     implementation "com.github.o7-Fire.Atomic-Library:Atomic:cd5814f301879d67fd5b6cf7af93a4a33667fcb1"
-    implementation group: 'org.jsoup', name: 'jsoup', version: '1.14.3'
-    implementation group: 'com.google.code.gson', name: 'gson', version: '2.9.0'
     implementation group: 'me.tongfei', name: 'progressbar', version: '0.9.3'
 
 }
