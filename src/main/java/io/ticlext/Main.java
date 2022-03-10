@@ -7,6 +7,7 @@ import me.tongfei.progressbar.ProgressBar;
 import java.io.*;
 import java.net.InetAddress;
 import java.net.UnknownHostException;
+import java.nio.file.Files;
 import java.util.*;
 import java.util.concurrent.ExecutionException;
 import java.util.concurrent.Future;
@@ -24,7 +25,7 @@ public class Main {
         BufferedReader brazil = new BufferedReader(new InputStreamReader(System.in));
         //Source Target Valid
         //Folder Folder V
-        //Folder File X
+        //Folder File if merged
         //File Folder V
         //File File V
         while (true) {
@@ -41,7 +42,21 @@ public class Main {
                 }
                 break;
             }
-            
+    
+        }
+        boolean mergeFiles = false;
+        while (source.isDirectory()) {
+            System.out.print("Merge files? (Y/N): ");
+            String ans = brazil.readLine().toLowerCase();
+            if (ans.equals("y")){
+                mergeFiles = true;
+                break;
+            }else if (ans.equals("n")){
+                mergeFiles = false;
+                break;
+            }else{
+                System.out.println("Invalid input");
+            }
         }
         while (true) {
             System.out.print("Enter Output path: ");
@@ -60,27 +75,24 @@ public class Main {
                 }
             }else{
                 if (source.isDirectory()){
-                    target.mkdirs();
+                    if (!mergeFiles){
+                        target.mkdirs();
+                    }
                 }
                 break;
             }
         }
-        if (source.isDirectory() && target.isFile()){
-            throw new IllegalArgumentException("Source is a directory, Target is a file");
-        }
-        if (target.isDirectory() && !target.exists()){
-            throw new IllegalArgumentException("Can't make target directory");
-        }
-        File[] files;
+    
+        ArrayList<File> files = new ArrayList<>();
         if (source.isDirectory()){
-            files = source.listFiles();
-            if (files == null){
+            Files.walk(source.toPath()).filter(Files::isRegularFile).forEach(f -> files.add(f.toFile()));
+            if (files.size() == 0){
                 System.out.println("No files found inside directory: " + source.getAbsolutePath());
                 return;
             }
-            System.out.println("Found " + files.length + " files inside directory: " + source.getAbsolutePath());
+            System.out.println("Found " + files.size() + " files inside directory: " + source.getAbsolutePath());
         }else{
-            files = new File[]{source};
+            files.add(source);
         }
         System.out.println("Writing to: '" + target.getAbsolutePath() + "' is a " + (target.isDirectory() ? " Directory" : "File"));
         while (true) {
@@ -95,10 +107,12 @@ public class Main {
         }
         List<Future<Report>> futures = new ArrayList<>();
         File finalOutput = target;
+        boolean finalMergeFiles = mergeFiles;
         for (File file : files) {
             if (file.isFile() && file.getName().endsWith(".txt")){
-                
-                futures.add(Pool.async(() -> validateEmailList(file, finalOutput)));
+    
+    
+                futures.add(Pool.async(() -> validateEmailList(file, finalOutput, finalMergeFiles)));
             }
         }
         ArrayList<Report> reports = new ArrayList<>();
@@ -166,25 +180,24 @@ public class Main {
                     report.invalidEmails++;
                 }
             }
-            
-            
-        }else if (!line.isEmpty()){
+    
+    
+        }else{
             report.invalidEmails++;
         }
         return null;
     }
     
-    public static Report validateEmailList(File file, File outputDir) {
-        Report report = new Report(file);
+    public static Report validateEmailList(File srcTxt, File outputFile, boolean mergeFile) {
+        Report report = new Report(srcTxt);
         long max = 0;
-        try(ProgressBar pb = new ProgressBar(file.getName(), max)) {
+        try(ProgressBar pb = new ProgressBar(srcTxt.getName(), max)) {
             HashSet<String> emails = new HashSet<>();
-            ArrayList<String> lines = new ArrayList<>();
-            try(BufferedReader br = new BufferedReader(new FileReader(file))) {
+            List<String> lines = new LinkedList<>();
+            try(BufferedReader br = new BufferedReader(new FileReader(srcTxt))) {
                 String line;
                 while ((line = br.readLine()) != null) {
                     lines.add(line);
-                    
                     report.totalLines++;
                     max++;
                     max++;
@@ -199,17 +212,23 @@ public class Main {
             }
             for (String line : lines) {
                 String email = checkEmail(report, line);
+                pb.step();
                 if (email == null) continue;
                 if (emails.add(email)){
                     report.validEmails++;
                 }else{
                     report.duplicateEmails++;
                 }
-                pb.step();
+    
             }
-            File newFile = outputDir.isDirectory() ? new File(outputDir, file.getName()) : outputDir;
+            File newFile;
+            if (mergeFile){
+                newFile = outputFile;
+            }else{
+                newFile = outputFile.isDirectory() ? new File(outputFile, srcTxt.getName()) : srcTxt;
+            }
             FileUtility.makeFile(newFile);
-            try(BufferedWriter bw = new BufferedWriter(new FileWriter(newFile))) {
+            try(BufferedWriter bw = new BufferedWriter(new FileWriter(newFile, mergeFile))) {
                 for (String line2 : emails) {
                     bw.write(line2);
                     bw.newLine();
@@ -243,7 +262,7 @@ public class Main {
         @Override
         public String toString() {
             final StringBuilder sb = new StringBuilder();
-            sb.append("Report for ").append(file.getName()).append(System.lineSeparator());
+            sb.append("Report for ").append(file.getPath()).append(System.lineSeparator());
             sb.append("Total Lines: ").append(totalLines).append(System.lineSeparator());
             sb.append("Invalid Domains: ").append(invalidDomains).append(System.lineSeparator());
             sb.append("Invalid Emails: ").append(invalidEmails).append(System.lineSeparator());
